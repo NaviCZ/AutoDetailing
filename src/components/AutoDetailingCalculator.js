@@ -568,7 +568,7 @@ const AutoDetailingCalculator = () => {
             <Calculator size={32} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">MV Auto Detailing Premium</h1>
+            <h1 className="text-2xl font-bold text-gray-900">MV Auto Detailing</h1>
             <p className="text-gray-500">Kalkulace služeb</p>
           </div>
         </div>
