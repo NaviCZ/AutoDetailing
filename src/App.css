@@ -1,0 +1,184 @@
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f4f4f4;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  max-width: 800px;
+  margin: 20px auto;
+  padding: 20px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo svg {
+  background-color: #007bff;
+  color: #fff;
+  padding: 10px;
+  border-radius: 50%;
+}
+
+.buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.buttons button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid #007bff;
+  background-color: #fff;
+  color: #007bff;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.customer-info, .calculator, .summary {
+  margin-top: 20px;
+}
+
+.customer-info div, .calculator div {
+  margin-bottom: 10px;
+}
+
+.customer-info label, .calculator label {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.customer-info input, .calculator input, .calculator select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.service-section {
+  margin-top: 20px;
+}
+
+.service-section h3 {
+  margin-bottom: 10px;
+  font-size: 1.2em;
+  color: #333;
+}
+
+.service-group {
+  margin-bottom: 20px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.service-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.service-group select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.service {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.service input {
+  margin-right: 10px;
+}
+
+.summary div {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.summary span {
+  font-size: 1.2em;
+}
+
+.summary #finalPrice {
+  color: #007bff;
+  font-weight: bold;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 10px;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .buttons {
+    margin-top: 10px;
+  }
+
+  .customer-info, .calculator, .summary {
+    margin-top: 10px;
+  }
+
+  .service-section h3 {
+    font-size: 1em;
+  }
+
+  .service-group {
+    margin-bottom: 10px;
+  }
+
+  .summary div {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .summary span {
+    margin-bottom: 5px;
+  }
+  
+
+  .summary #finalPrice {
+    color: #007bff;
+    font-weight: bold;
+    display: none; /* Toto skryje element, pokud je hodnota 0 */
+  }
+  
+  .summary #finalPrice.show {
+    display: block; /* Toto zobrazí element, pokud má třídu 'show' */
+  }
+  
+   /* Zajistíme, že všechny vstupy v mobilním zobrazení jsou správně velikosti */
+   .customer-info input, .calculator input, .calculator select {
+    width: 100%;
+    padding: 12px;
+  }
+}
