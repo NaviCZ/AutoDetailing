@@ -79,6 +79,7 @@ const PDFGenerator = ({
 
     const pdfContent = `
       <!DOCTYPE html>
+      <html lang="cs">
       <html>
         <head>
           <title>Faktura - MV Auto Detailing</title>
