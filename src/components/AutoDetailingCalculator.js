@@ -304,7 +304,7 @@ const AutoDetailingCalculator = () => {
         name: 'Ošetření oken',
         services: [
           { id: 'window_polish', name: 'Vyleštění všech oken z obou stran', price: 300 },
-          { id: 'glass_ceramic_1y', name: 'Keramická ochrana všech skel až s 1 roční účinností', price: 500 }
+          { id: 'glass_ceramic_1y', name: 'Keramická ochrana všech skel až s 1 roční účinností', price: 700 }
         ]
       },
       {
