@@ -21,7 +21,10 @@ const PDFGenerator = ({
   discountAmount,
   carSize,
   finalPrice,
-  additionalCharges
+  additionalCharges,
+  additionalNotes,
+  selectedPackages
+  
 }) => {
   const generatePDF = () => {
     const generateServiceTable = (category) => {
@@ -35,12 +38,12 @@ const PDFGenerator = ({
             .map(service => {
               const hours = service?.hourly ? serviceHours[service.id] || 1 : null;
               const totalServicePrice = hours ? service.price * hours : service.price;
-              
+
               // Upravený formát pro hodinové služby
-              const serviceName = hours 
-                ? `${service.name.replace('/ 1h', '')} (${hours} h)` 
+              const serviceName = hours
+                ? `${service.name.replace('/ 1h', '')} (${hours} h)`
                 : service.name;
-              
+
               return `
                 <tr class="${category === 'interior' ? 'bg-blue-50' : 'bg-green-50'}">
                   <td>${serviceName}</td>
@@ -49,8 +52,15 @@ const PDFGenerator = ({
               `;
             })
         )
-        .join('');
-      
+        const additionalChargesTable = additionalCharges
+      .filter(charge => charge.amount > 0)
+      .map((charge) => `
+        <tr>
+          <td>${charge.description}</td>
+          <td style="white-space: nowrap;">${Math.round(charge.amount).toLocaleString()} Kč</td>
+        </tr>
+      `).join('');
+
       return categoryServices ? `
         <h2>${category === 'interior' ? 'Interiér' : 'Exteriér'}</h2>
         <table>
@@ -67,6 +77,45 @@ const PDFGenerator = ({
       ` : '';
     };
 
+    const generatePackageTable = (packageName, services) => {
+      const packageServices = services
+        .map(serviceId => {
+          const service = [...serviceGroups.interior.flatMap(group => group.services || group.options || []),
+                           ...serviceGroups.exterior.flatMap(group => group.services || group.options || [])]
+                          .find(service => service.id === serviceId);
+          const hours = service?.hourly ? serviceHours[service.id] || 1 : null;
+          const totalServicePrice = hours ? service.price * hours : service.price;
+
+          // Upravený formát pro hodinové služby
+          const serviceName = hours
+            ? `${service.name.replace('/ 1h', '')} (${hours} h)`
+            : service.name;
+
+          return `
+            <tr>
+              <td>${serviceName}</td>
+              <td style="white-space: nowrap;">${Math.round(totalServicePrice).toLocaleString()} Kč</td>
+            </tr>
+          `;
+        })
+        .join('');
+
+      return `
+        <h2>${packageName}</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Služba</th>
+              <th>Cena</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${packageServices}
+          </tbody>
+        </table>
+      `;
+    };
+
     const interiorServices = generateServiceTable('interior');
     const exteriorServices = generateServiceTable('exterior');
 
@@ -77,8 +126,13 @@ const PDFGenerator = ({
   </tr>
 `).join('');
 
+    const packageTables = Object.entries(selectedPackages).map(([packageName, services]) =>
+      generatePackageTable(packageName, services)
+    ).join('');
+
     const pdfContent = `
       <!DOCTYPE html>
+      <html lang="cs">
       <html>
         <head>
           <title>Faktura - MV Auto Detailing</title>
@@ -126,6 +180,10 @@ const PDFGenerator = ({
               font-weight: bold;
               color: black;
             }
+            .highlight {
+              font-weight: bold;
+              color: red;
+            }
           </style>
         </head>
         <body>
@@ -138,15 +196,15 @@ const PDFGenerator = ({
           <p><strong>Poznámky k vozidlu:</strong> ${vehicleNotes}</p>
           <p><strong>Datum:</strong> ${new Date().toLocaleDateString('cs-CZ')}</p>
 
-          ${!interiorServices && !exteriorServices ?
+          ${!interiorServices && !exteriorServices && !packageTables ?
             '<div class="section-note">Nebyly vybrány žádné služby</div>' :
             `
-              ${interiorServices || '<div class="section-note">Nebyly vybrány žádné služby interiéru</div>'}
-              ${exteriorServices || '<div class="section-note">Nebyly vybrány žádné služby exteriéru</div>'}
+              
+              ${packageTables}
             `
           }
 
-          ${additionalCharges.length > 0 ? `
+          ${additionalCharges.some(charge => charge.amount > 0) ? `
             <h2>Dodatečné náklady</h2>
             <table>
               <thead>
@@ -193,6 +251,13 @@ const PDFGenerator = ({
             </tbody>
           </table>
 
+          ${additionalNotes ? `
+            <div class="highlight">
+              <h2>Poznámky</h2>
+              <p>${additionalNotes}</p>
+            </div>
+          ` : ''}
+
           <p style="text-align: center; margin-top: 20px;">Děkujeme za Vaši důvěru a těšíme se na další spolupráci.</p>
         </body>
       </html>
@@ -227,6 +292,8 @@ const AutoDetailingCalculator = () => {
   const [finalPrice, setFinalPrice] = useState(0);
   const [serviceHours, setServiceHours] = useState({});
   const [additionalCharges, setAdditionalCharges] = useState([{ description: '', amount: 0 }]);
+  const [additionalNotes, setAdditionalNotes] = useState('');
+  const [selectedPackages, setSelectedPackages] = useState({});
 
   const serviceGroups = {
     interior: [
@@ -274,7 +341,9 @@ const AutoDetailingCalculator = () => {
           { id: 'seatbelt_cleaning', name: 'Čištění bezpečnostních pásů', price: 300 },
           { id: 'ac_cleaning', name: 'Čištění klimatizace a interiéru ozónem', price: 300 },
           { id: 'steam_cleaning', name: 'Parní hloubkové čištění / 1h', price: 350, hourly: true },
-          { id: 'leather_renovation', name: 'Renovace kůže autosedaček 2ks', price: 1000 }
+          { id: 'leather_renovation', name: 'Renovace kůže autosedaček 2ks', price: 1000 },
+          { id: 'leather_ceramic', name: 'Keramika na kůži', price: 1200 },
+          { id: 'plastics_ceramic', name: 'Keramika na plasty v interiéru', price: 800 }
         ]
       }
     ],
@@ -303,7 +372,7 @@ const AutoDetailingCalculator = () => {
         name: 'Ošetření oken',
         services: [
           { id: 'window_polish', name: 'Vyleštění všech oken z obou stran', price: 300 },
-          { id: 'glass_ceramic_1y', name: 'Keramická ochrana všech skel až s 1 roční účinností', price: 500 }
+          { id: 'glass_ceramic_1y', name: 'Keramická ochrana všech skel až s 1 roční účinností', price: 700 }
         ]
       },
       {
@@ -369,6 +438,17 @@ const AutoDetailingCalculator = () => {
     ]
   };
 
+  const packages = {
+    'Balíček - Důkladné mytí vozu': {
+      services: ['foam', 'wash', 'wheels', 'door_cleaning'],
+      price: 850 // Celková cena balíčku
+    },
+    'Balíček - Keramická ochrana interiéru': {
+      services: ['leather_ceramic', 'plastics_ceramic'],
+      price: 2000 // Celková cena balíčku
+    }
+  };
+
   const handleVariantChange = (groupId, value) => {
     const newSelected = new Set(selectedServices);
     if (serviceVariants[groupId]) {
@@ -420,9 +500,22 @@ const AutoDetailingCalculator = () => {
     setSelectedServices(newSelected);
   };
 
+  const togglePackage = (packageName) => {
+    const newSelectedPackages = { ...selectedPackages };
+    if (newSelectedPackages[packageName]) {
+      delete newSelectedPackages[packageName];
+    } else {
+      newSelectedPackages[packageName] = packages[packageName].services;
+    }
+    setSelectedPackages(newSelectedPackages);
+  };
+
   const updatePrices = () => {
     let sum = 0;
-
+// Přičti ceny balíčků podle jejich celkové ceny
+Object.entries(selectedPackages).forEach(([packageName]) => {
+  sum += packages[packageName].price;
+});
     // Projdi všechny služby a přičti jejich ceny
     Object.values(serviceGroups).forEach(category => {
       category.forEach(group => {
@@ -442,6 +535,18 @@ const AutoDetailingCalculator = () => {
               }
             }
           });
+        }
+      });
+    });
+
+    // Přičti ceny balíčků
+    Object.values(selectedPackages).forEach(packageServices => {
+      packageServices.forEach(serviceId => {
+        const service = [...serviceGroups.interior.flatMap(group => group.services || group.options || []),
+                         ...serviceGroups.exterior.flatMap(group => group.services || group.options || [])]
+                        .find(service => service.id === serviceId);
+        if (service) {
+          sum += service.price;
         }
       });
     });
@@ -472,7 +577,7 @@ const AutoDetailingCalculator = () => {
 
   useEffect(() => {
     updatePrices();
-  }, [selectedServices, serviceVariants, discount, carSize, serviceHours, additionalCharges]);
+  }, [selectedServices, serviceVariants, discount, carSize, serviceHours, additionalCharges, selectedPackages]);
 
   const renderServiceGroup = (group) => {
     if (group.type === 'select') {
@@ -568,7 +673,7 @@ const AutoDetailingCalculator = () => {
             <Calculator size={32} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">MV Auto Detailing Premium</h1>
+            <h1 className="text-2xl font-bold text-gray-900">MV Auto Detailing</h1>
             <p className="text-gray-500">Kalkulace služeb</p>
           </div>
         </div>
@@ -648,6 +753,31 @@ const AutoDetailingCalculator = () => {
       </Card>
 
       <Card className="bg-gray-50">
+    <CardContent className="pt-6">
+      <div className="space-y-4">
+        <h3 className="text-lg font-bold mb-4">Balíčky služeb</h3>
+        {Object.entries(packages).map(([packageName, packageDetails]) => (
+          <div 
+            key={packageName} 
+            className="flex items-center space-x-4 cursor-pointer hover:bg-gray-100 p-2 rounded-lg"
+            onClick={() => togglePackage(packageName)}
+          >
+            <input
+              type="checkbox"
+              checked={!!selectedPackages[packageName]}
+              onChange={() => togglePackage(packageName)}
+              className="h-5 w-5 rounded border-gray-300 pointer-events-none"
+            />
+            <div className="flex justify-between w-full items-center">
+              <span className="font-medium whitespace-nowrap">{packageName}</span>
+              <span className="text-blue-600 font-bold whitespace-nowrap ml-4">{packageDetails.price.toLocaleString()} Kč</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </CardContent>
+  </Card>
+      <Card className="bg-gray-50">
         <CardContent className="pt-6">
           <div className="space-y-4">
             <h3 className="text-lg font-bold mb-4">Dodatečné náklady</h3>
@@ -719,6 +849,21 @@ const AutoDetailingCalculator = () => {
         </CardContent>
       </Card>
 
+      <Card className="bg-gray-50">
+        <CardContent className="pt-6">
+          <div className="space-y-4">
+            <label className="text-sm font-medium">Poznámky:</label>
+            <textarea
+              value={additionalNotes}
+              onChange={(e) => setAdditionalNotes(e.target.value)}
+              className="w-full p-2 border rounded"
+              placeholder="Poznámka která bude na faktuře..."
+              rows={3}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       <PDFGenerator
         customerName={customerName}
         customerPhone={customerPhone}
@@ -732,6 +877,8 @@ const AutoDetailingCalculator = () => {
         carSize={carSize}
         finalPrice={finalPrice}
         additionalCharges={additionalCharges}
+        additionalNotes={additionalNotes}
+        selectedPackages={selectedPackages}
       />
     </div>
   );
