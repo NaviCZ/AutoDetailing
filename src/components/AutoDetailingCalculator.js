@@ -27,248 +27,240 @@ const PDFGenerator = ({
   
 }) => {
   const generatePDF = () => {
-    const generateServiceTable = (category) => {
-      const categoryServices = serviceGroups[category]
-        .filter(group =>
-          (group.services || group.options).some(service => selectedServices.has(service.id))
-        )
-        .flatMap(group =>
-          (group.services || group.options)
-            .filter(service => selectedServices.has(service.id))
-            .map(service => {
-              const hours = service?.hourly ? serviceHours[service.id] || 1 : null;
-              const totalServicePrice = hours ? service.price * hours : service.price;
+  const generateServiceTable = (category) => {
+    const categoryServices = serviceGroups[category]
+      .filter(group =>
+        (group.services || group.options).some(service => selectedServices.has(service.id))
+      )
+      .flatMap(group =>
+        (group.services || group.options)
+          .filter(service => selectedServices.has(service.id))
+          .map(service => {
+            const hours = service?.hourly ? serviceHours[service.id] || 1 : null;
+            const totalServicePrice = hours ? service.price * hours : service.price;
 
-              // Upravený formát pro hodinové služby
-              const serviceName = hours
-                ? `${service.name.replace('/ 1h', '')} (${hours} h)`
-                : service.name;
+            // Upravený formát pro hodinové služby
+            const serviceName = hours
+              ? `${service.name.replace('/ 1h', '')} (${hours} h)`
+              : service.name;
 
-              return `
-                <tr class="${category === 'interior' ? 'bg-blue-50' : 'bg-green-50'}">
-                  <td>${serviceName}</td>
-                  <td style="white-space: nowrap;">${Math.round(totalServicePrice).toLocaleString()} Kč</td>
-                </tr>
-              `;
-            })
-        )
-        const additionalChargesTable = additionalCharges
-      .filter(charge => charge.amount > 0)
-      .map((charge) => `
-        <tr>
-          <td>${charge.description}</td>
-          <td style="white-space: nowrap;">${Math.round(charge.amount).toLocaleString()} Kč</td>
-        </tr>
-      `).join('');
-
-      return categoryServices ? `
-        <h2>${category === 'interior' ? 'Interiér' : 'Exteriér'}</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Služba</th>
-              <th>Cena</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${categoryServices}
-          </tbody>
-        </table>
-      ` : '';
-    };
-
-    const generatePackageTable = (packageName, services) => {
-      const packageServices = services
-        .map(serviceId => {
-          const service = [...serviceGroups.interior.flatMap(group => group.services || group.options || []),
-                           ...serviceGroups.exterior.flatMap(group => group.services || group.options || [])]
-                          .find(service => service.id === serviceId);
-          const hours = service?.hourly ? serviceHours[service.id] || 1 : null;
-          const totalServicePrice = hours ? service.price * hours : service.price;
-
-          // Upravený formát pro hodinové služby
-          const serviceName = hours
-            ? `${service.name.replace('/ 1h', '')} (${hours} h)`
-            : service.name;
-
-          return `
-            <tr>
-              <td>${serviceName}</td>
-              <td style="white-space: nowrap;">${Math.round(totalServicePrice).toLocaleString()} Kč</td>
-            </tr>
-          `;
-        })
-        .join('');
-
-      return `
-        <h2>${packageName}</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Služba</th>
-              <th>Cena</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${packageServices}
-          </tbody>
-        </table>
-      `;
-    };
-
-    const interiorServices = generateServiceTable('interior');
-    const exteriorServices = generateServiceTable('exterior');
-
-    const additionalChargesTable = additionalCharges.map((charge, index) => `
-  <tr>
-    <td>${charge.description}</td>
-    <td style="white-space: nowrap;">${Math.round(charge.amount).toLocaleString()} Kč</td>
-  </tr>
-`).join('');
-
-    const packageTables = Object.entries(selectedPackages).map(([packageName, services]) =>
-      generatePackageTable(packageName, services)
-    ).join('');
-
-    const pdfContent = `
-      <!DOCTYPE html>
-      <html lang="cs">
-      <html>
-        <head>
-          <title>Faktura - MV Auto Detailing</title>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              max-width: 800px;
-              margin: 0 auto;
-              padding: 20px;
-              line-height: 1.6;
-            }
-            .logo {
-              max-width: 150px;
-              display: block;
-              margin: 0 auto 20px;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-bottom: 20px;
-            }
-            th, td {
-              border: 1px solid #e0e0e0;
-              padding: 8px;
-              text-align: left;
-            }
-            th {
-              background-color: #f0f0e0;
-            }
-            h1, h2 {
-              text-align: center;
-              color: #333;
-              border-bottom: 2px solid #4a90e2;
-              padding-bottom: 10px;
-            }
-            .section-note {
-              background-color: #f9f9f9;
-              border: 1px solid #e0e0e0;
-              padding: 10px;
-              margin-bottom: 20px;
-              text-align: center;
-              font-style: italic;
-            }
-            .final-price {
-              font-weight: bold;
-              color: black;
-            }
-            .highlight {
-              font-weight: bold;
-              color: red;
-            }
-          </style>
-        </head>
-        <body>
-          <img src="./Logo.png" alt="Logo firmy" class="logo" />
-          <h1>MV Auto Detailing - Faktura</h1>
-
-          <h2>Zákaznické údaje</h2>
-          <p><strong>Zákazník:</strong> ${customerName}</p>
-          <p><strong>Telefon:</strong> ${customerPhone}</p>
-          <p><strong>Poznámky k vozidlu:</strong> ${vehicleNotes}</p>
-          <p><strong>Datum:</strong> ${new Date().toLocaleDateString('cs-CZ')}</p>
-
-          ${!interiorServices && !exteriorServices && !packageTables ?
-            '<div class="section-note">Nebyly vybrány žádné služby</div>' :
-            `
-              
-              ${packageTables}
-            `
-          }
-
-          ${additionalCharges.some(charge => charge.amount > 0) ? `
-            <h2>Dodatečné náklady</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Popis</th>
-                  <th>Cena</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${additionalChargesTable}
-              </tbody>
-            </table>
-          ` : ''}
-
-          <h2>Shrnutí</h2>
-          <table>
-            <tbody>
-              <tr>
-                <td>Celková cena služeb</td>
-                <td>${totalPrice.toLocaleString()} Kč</td>
+            return `
+              <tr class="${category === 'interior' ? 'bg-blue-50' : 'bg-green-50'}">
+                <td>${serviceName}</td>
+                <td style="white-space: nowrap;">${Math.round(totalServicePrice).toLocaleString()} Kč</td>
               </tr>
-              ${discount > 0 ? `
-                <tr>
-                  <td>Sleva (${discount}%)</td>
-                  <td style="white-space: nowrap;">-${Math.round(discountAmount).toLocaleString()} Kč</td>
-                </tr>
-              ` : ''}
-              ${carSize === 'XL' ? `
-                <tr>
-                  <td>Příplatek za vůz XL (${CAR_SIZE_MARKUP * 100}%)</td>
-                  <td style="white-space: nowrap;">+${Math.round(totalPrice * CAR_SIZE_MARKUP).toLocaleString()} Kč</td>
-                </tr>
-              ` : ''}
-              ${additionalCharges.length > 0 ? `
-                <tr>
-                  <td>Dodatečné náklady</td>
-                  <td style="white-space: nowrap;">+${Math.round(additionalCharges.reduce((sum, charge) => sum + charge.amount, 0)).toLocaleString()} Kč</td>
-                </tr>
-              ` : ''}
-              <tr class="final-price">
-                <td>Konečná cena k zaplacení</td>
-                <td style="white-space: nowrap;">${Math.round(finalPrice).toLocaleString()} Kč</td>
-              </tr>
-            </tbody>
-          </table>
+            `;
+          })
+      );
 
-          ${additionalNotes ? `
-            <div class="highlight">
-              <h2>Poznámky</h2>
-              <p>${additionalNotes}</p>
-            </div>
-          ` : ''}
-
-          <p style="text-align: center; margin-top: 20px;">Děkujeme za Vaši důvěru a těšíme se na další spolupráci.</p>
-        </body>
-      </html>
-    `;
-
-    const printWindow = window.open('', '', 'height=500, width=800');
-    printWindow.document.write(pdfContent);
-    printWindow.document.close();
-    printWindow.print();
+    return categoryServices.length > 0 ? `
+      <h2>${category === 'interior' ? 'Interiér' : 'Exteriér'}</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Služba</th>
+            <th>Cena</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${categoryServices.join('')}
+        </tbody>
+      </table>
+    ` : '';
   };
 
+  const generatePackageTable = (packageName, services) => {
+    const packageServices = services
+      .map(serviceId => {
+        const service = [...serviceGroups.interior.flatMap(group => group.services || group.options || []),
+                         ...serviceGroups.exterior.flatMap(group => group.services || group.options || [])]
+                        .find(service => service.id === serviceId);
+        const hours = service?.hourly ? serviceHours[service.id] || 1 : null;
+        const totalServicePrice = hours ? service.price * hours : service.price;
+
+        // Upravený formát pro hodinové služby
+        const serviceName = hours
+          ? `${service.name.replace('/ 1h', '')} (${hours} h)`
+          : service.name;
+
+        return `
+          <tr>
+            <td>${serviceName}</td>
+            <td style="white-space: nowrap;">${Math.round(totalServicePrice).toLocaleString()} Kč</td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    return `
+      <h2>${packageName}</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Služba</th>
+            <th>Cena</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${packageServices}
+        </tbody>
+      </table>
+    `;
+  };
+
+  const interiorServices = generateServiceTable('interior');
+  const exteriorServices = generateServiceTable('exterior');
+
+  const additionalChargesTable = additionalCharges
+    .filter(charge => charge.amount > 0)
+    .map((charge) => `
+      <tr>
+        <td>${charge.description}</td>
+        <td style="white-space: nowrap;">${Math.round(charge.amount).toLocaleString()} Kč</td>
+      </tr>
+    `).join('');
+
+  const packageTables = Object.entries(selectedPackages).map(([packageName, services]) =>
+    generatePackageTable(packageName, services)
+  ).join('');
+
+  const pdfContent = `
+    <!DOCTYPE html>
+    <html lang="cs">
+    <html>
+      <head>
+        <title>Faktura - MV Auto Detailing</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+          }
+          .logo {
+            max-width: 150px;
+            display: block;
+            margin: 0 auto 20px;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+          }
+          th, td {
+            border: 1px solid #e0e0e0;
+            padding: 8px;
+            text-align: left;
+          }
+          th {
+            background-color: #f0f0e0;
+          }
+          h1, h2 {
+            text-align: center;
+            color: #333;
+            border-bottom: 2px solid #4a90e2;
+            padding-bottom: 10px;
+          }
+          .section-note {
+            background-color: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            padding: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-style: italic;
+          }
+          .final-price {
+            font-weight: bold;
+            color: black;
+          }
+          .highlight {
+            font-weight: bold;
+            color: red;
+          }
+        </style>
+      </head>
+      <body>
+        <img src="./Logo.png" alt="Logo firmy" class="logo" />
+        <h1>MV Auto Detailing - Faktura</h1>
+
+        <h2>Zákaznické údaje</h2>
+        <p><strong>Zákazník:</strong> ${customerName}</p>
+        <p><strong>Telefon:</strong> ${customerPhone}</p>
+        <p><strong>Poznámky k vozidlu:</strong> ${vehicleNotes}</p>
+        <p><strong>Datum:</strong> ${new Date().toLocaleDateString('cs-CZ')}</p>
+
+        ${!interiorServices && !exteriorServices && !packageTables ?
+          '<div class="section-note">Nebyly vybrány žádné služby</div>' :
+          `
+            ${packageTables}
+            ${interiorServices}
+            ${exteriorServices}
+          `
+        }
+
+        ${additionalCharges.some(charge => charge.amount > 0) ? `
+          <h2>Dodatečné náklady</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Popis</th>
+                <th>Cena</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${additionalChargesTable}
+            </tbody>
+          </table>
+        ` : ''}
+
+        <h2>Shrnutí</h2>
+        <table>
+          <tbody>
+            <tr>
+              <td>Celková cena služeb</td>
+              <td>${totalPrice.toLocaleString()} Kč</td>
+            </tr>
+            ${discount > 0 ? `
+              <tr>
+                <td>Sleva (${discount}%)</td>
+                <td style="white-space: nowrap;">-${Math.round(discountAmount).toLocaleString()} Kč</td>
+              </tr>
+            ` : ''}
+            ${carSize === 'XL' ? `
+              <tr>
+                <td>Příplatek za vůz XL (${CAR_SIZE_MARKUP * 100}%)</td>
+                <td style="white-space: nowrap;">+${Math.round(totalPrice * CAR_SIZE_MARKUP).toLocaleString()} Kč</td>
+              </tr>
+            ` : ''}
+            <tr>
+              <td class="final-price">Konečná cena k zaplacení</td>
+              <td class="final-price">${Math.round(finalPrice).toLocaleString()} Kč</td>
+            </tr>
+          </tbody>
+        </table>
+
+        ${additionalNotes ? `
+          <div class="highlight">
+            <h2>Poznámky</h2>
+            <p>${additionalNotes}</p>
+          </div>
+        ` : ''}
+
+        <p style="text-align: center; margin-top: 20px;">Děkujeme za Vaši důvěru a těšíme se na další spolupráci.</p>
+      </body>
+    </html>
+  `;
+
+  const printWindow = window.open('', '', 'height=500, width=800');
+  printWindow.document.write(pdfContent);
+  printWindow.document.close();
+  printWindow.print();
+};
+
+  
+  
+  
   return (
     <button
       onClick={generatePDF}
@@ -414,7 +406,7 @@ const AutoDetailingCalculator = () => {
           { id: 'plastics_ceramic_2y', name: 'Keramická ochrana exteriérových plastů a světel až s 2 roční účinností', price: 1800 },
           { id: 'plastics_ceramic_3y', name: 'Keramická ochrana exteriérových plastů a světel až s 3 roční účinností', price: 2100 },
           { id: 'plastics_ceramic_5y', name: 'Keramická ochrana exteriérových plastů a světel až s 5 roční účinností', price: 2500 }
-          ]
+        ]
       },
       {
         id: 'additional_protection',
@@ -440,12 +432,10 @@ const AutoDetailingCalculator = () => {
 
   const packages = {
     'Balíček - Důkladné mytí vozu': {
-      services: ['foam', 'wash', 'wheels', 'door_cleaning'],
-      price: 850 // Celková cena balíčku
+      services: ['foam', 'wash', 'wheels', 'door_cleaning', 'chemical_body', 'chemical_wheels'],
     },
     'Balíček - Keramická ochrana interiéru': {
       services: ['leather_ceramic', 'plastics_ceramic'],
-      price: 2000 // Celková cena balíčku
     }
   };
 
@@ -512,10 +502,7 @@ const AutoDetailingCalculator = () => {
 
   const updatePrices = () => {
     let sum = 0;
-// Přičti ceny balíčků podle jejich celkové ceny
-Object.entries(selectedPackages).forEach(([packageName]) => {
-  sum += packages[packageName].price;
-});
+
     // Projdi všechny služby a přičti jejich ceny
     Object.values(serviceGroups).forEach(category => {
       category.forEach(group => {
@@ -539,9 +526,9 @@ Object.entries(selectedPackages).forEach(([packageName]) => {
       });
     });
 
-    // Přičti ceny balíčků
-    Object.values(selectedPackages).forEach(packageServices => {
-      packageServices.forEach(serviceId => {
+    // Přičti ceny balíčků podle jejich skutečné ceny
+    Object.entries(selectedPackages).forEach(([packageName, serviceIds]) => {
+      serviceIds.forEach(serviceId => {
         const service = [...serviceGroups.interior.flatMap(group => group.services || group.options || []),
                          ...serviceGroups.exterior.flatMap(group => group.services || group.options || [])]
                         .find(service => service.id === serviceId);
@@ -657,7 +644,8 @@ Object.entries(selectedPackages).forEach(([packageName]) => {
 
   const handleAdditionalChargeChange = (index, field, value) => {
     const newCharges = [...additionalCharges];
-    newCharges[index][field] = value;
+    // Odstraň úvodní nuly před převodem na číslo
+    newCharges[index][field] = field === 'amount' ? Number(value.replace(/^0+/, '')) : value;
     setAdditionalCharges(newCharges);
   };
 
@@ -753,30 +741,40 @@ Object.entries(selectedPackages).forEach(([packageName]) => {
       </Card>
 
       <Card className="bg-gray-50">
-    <CardContent className="pt-6">
-      <div className="space-y-4">
-        <h3 className="text-lg font-bold mb-4">Balíčky služeb</h3>
-        {Object.entries(packages).map(([packageName, packageDetails]) => (
-          <div 
-            key={packageName} 
-            className="flex items-center space-x-4 cursor-pointer hover:bg-gray-100 p-2 rounded-lg"
-            onClick={() => togglePackage(packageName)}
-          >
-            <input
-              type="checkbox"
-              checked={!!selectedPackages[packageName]}
-              onChange={() => togglePackage(packageName)}
-              className="h-5 w-5 rounded border-gray-300 pointer-events-none"
-            />
-            <div className="flex justify-between w-full items-center">
-              <span className="font-medium whitespace-nowrap">{packageName}</span>
-              <span className="text-blue-600 font-bold whitespace-nowrap ml-4">{packageDetails.price.toLocaleString()} Kč</span>
-            </div>
+        <CardContent className="pt-6">
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold mb-4">Balíčky služeb</h3>
+            {Object.entries(packages).map(([packageName, packageDetails]) => {
+              const packagePrice = packageDetails.services.reduce((sum, serviceId) => {
+                const service = [...serviceGroups.interior.flatMap(group => group.services || group.options || []),
+                                 ...serviceGroups.exterior.flatMap(group => group.services || group.options || [])]
+                                .find(service => service.id === serviceId);
+                return sum + (service ? service.price : 0);
+              }, 0);
+
+              return (
+                <div
+                  key={packageName}
+                  className="flex items-center space-x-4 cursor-pointer hover:bg-gray-100 p-2 rounded-lg"
+                  onClick={() => togglePackage(packageName)}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!selectedPackages[packageName]}
+                    onChange={() => togglePackage(packageName)}
+                    className="h-5 w-5 rounded border-gray-300 pointer-events-none"
+                  />
+                  <div className="flex justify-between w-full items-center">
+                    <span className="font-medium whitespace-nowrap">{packageName}</span>
+                    <span className="text-blue-600 font-bold whitespace-nowrap ml-4">{packagePrice.toLocaleString()} Kč</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        ))}
-      </div>
-    </CardContent>
-  </Card>
+        </CardContent>
+      </Card>
+
       <Card className="bg-gray-50">
         <CardContent className="pt-6">
           <div className="space-y-4">
