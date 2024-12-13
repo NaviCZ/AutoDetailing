@@ -768,16 +768,15 @@ Object.entries(selectedPackages).forEach(([packageName]) => {
               onChange={() => togglePackage(packageName)}
               className="h-5 w-5 rounded border-gray-300 pointer-events-none"
             />
-            <div className="flex justify-between w-full">
-              <span className="font-medium">{packageName}</span>
-              <span className="text-blue-600 font-bold">{packageDetails.price.toLocaleString()} Kč</span>
+            <div className="flex justify-between w-full items-center">
+              <span className="font-medium whitespace-nowrap">{packageName}</span>
+              <span className="text-blue-600 font-bold whitespace-nowrap ml-4">{packageDetails.price.toLocaleString()} Kč</span>
             </div>
           </div>
         ))}
       </div>
     </CardContent>
   </Card>
-
       <Card className="bg-gray-50">
         <CardContent className="pt-6">
           <div className="space-y-4">
@@ -853,12 +852,12 @@ Object.entries(selectedPackages).forEach(([packageName]) => {
       <Card className="bg-gray-50">
         <CardContent className="pt-6">
           <div className="space-y-4">
-            <label className="text-sm font-medium">Další poznámky</label>
+            <label className="text-sm font-medium">Poznámky:</label>
             <textarea
               value={additionalNotes}
               onChange={(e) => setAdditionalNotes(e.target.value)}
               className="w-full p-2 border rounded"
-              placeholder="Další poznámky k faktuře..."
+              placeholder="Poznámka která bude na faktuře..."
               rows={3}
             />
           </div>
