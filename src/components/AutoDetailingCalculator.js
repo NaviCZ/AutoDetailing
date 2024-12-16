@@ -421,7 +421,7 @@ const AutoDetailingCalculator = () => {
         name: 'Další služby',
         services: [
           { id: 'windshield_wipers', name: 'Tekuté stěrače', price: 300 },
-          { id: 'engine_plastic_cleaning', name: 'Čištění a oživení plastů v motorové části vozu', price: 500 },
+          { id: 'engine_plastic_cleaning', name: 'Hloubkové čištění mot. prostoru včetně vnitřní strany kapoty + ošetření mot. plastů', price: 700 },
           { id: 'headlight_renovation', name: 'Renovace předních světel + keramická ochrana až s 1 roční účinností', price: 1000 },
           { id: 'alu_partial_renovation', name: 'Částečná renovace ALU disků / broušení a lakování', price: 500, hourly: true },
           { id: 'scratch_repair', name: 'Oprava škrábanců a retuše po kamínkách / 1h', price: 350, hourly: true }
@@ -704,6 +704,7 @@ const AutoDetailingCalculator = () => {
         </CardContent>
       </Card>
 
+      
       <Card>
         <CardContent className="pt-6">
           <div className="space-y-6">
@@ -739,7 +740,7 @@ const AutoDetailingCalculator = () => {
           </div>
         </CardContent>
       </Card>
-
+      
       <Card className="bg-gray-50">
         <CardContent className="pt-6">
           <div className="space-y-4">
