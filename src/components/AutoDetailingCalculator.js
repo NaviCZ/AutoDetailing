@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/Card';
 import { Button } from './ui/Button';
-import { Printer, Download, Calculator } from 'lucide-react';
-import jsPDF from "jspdf";
-import "jspdf-autotable";
-import CZFontPDF from "./CZFontPDF-normal.js"; // váš vlastní font
+import { Printer, Download, Calculator, List } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 
 const CAR_SIZE_MARKUP = 0.3; // 30% příplatek pro XL vozy
@@ -24,243 +21,239 @@ const PDFGenerator = ({
   additionalCharges,
   additionalNotes,
   selectedPackages
-  
 }) => {
   const generatePDF = () => {
-  const generateServiceTable = (category) => {
-    const categoryServices = serviceGroups[category]
-      .filter(group =>
-        (group.services || group.options).some(service => selectedServices.has(service.id))
-      )
-      .flatMap(group =>
-        (group.services || group.options)
-          .filter(service => selectedServices.has(service.id))
-          .map(service => {
-            const hours = service?.hourly ? serviceHours[service.id] || 1 : null;
-            const totalServicePrice = hours ? service.price * hours : service.price;
+    const generateServiceTable = (category) => {
+      const categoryServices = serviceGroups[category]
+        .filter(group =>
+          (group.services || group.options).some(service => selectedServices.has(service.id))
+        )
+        .flatMap(group =>
+          (group.services || group.options)
+            .filter(service => selectedServices.has(service.id))
+            .map(service => {
+              const hours = service?.hourly ? serviceHours[service.id] || 1 : null;
+              const totalServicePrice = hours ? service.price * hours : service.price;
 
-            // Upravený formát pro hodinové služby
-            const serviceName = hours
-              ? `${service.name.replace('/ 1h', '')} (${hours} h)`
-              : service.name;
+              // Upravený formát pro hodinové služby
+              const serviceName = hours
+                ? `${service.name.replace('/ 1h', '')} (${hours} h)`
+                : service.name;
 
-            return `
-              <tr class="${category === 'interior' ? 'bg-blue-50' : 'bg-green-50'}">
-                <td>${serviceName}</td>
-                <td style="white-space: nowrap;">${Math.round(totalServicePrice).toLocaleString()} Kč</td>
-              </tr>
-            `;
-          })
-      );
+              return `
+                <tr class="${category === 'interior' ? 'bg-blue-50' : 'bg-green-50'}">
+                  <td>${serviceName}</td>
+                  <td style="white-space: nowrap;">${Math.round(totalServicePrice).toLocaleString()} Kč</td>
+                </tr>
+              `;
+            })
+        );
 
-    return categoryServices.length > 0 ? `
-      <h2>${category === 'interior' ? 'Interiér' : 'Exteriér'}</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Služba</th>
-            <th>Cena</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${categoryServices.join('')}
-        </tbody>
-      </table>
-    ` : '';
-  };
-
-  const generatePackageTable = (packageName, services) => {
-    const packageServices = services
-      .map(serviceId => {
-        const service = [...serviceGroups.interior.flatMap(group => group.services || group.options || []),
-                         ...serviceGroups.exterior.flatMap(group => group.services || group.options || [])]
-                        .find(service => service.id === serviceId);
-        const hours = service?.hourly ? serviceHours[service.id] || 1 : null;
-        const totalServicePrice = hours ? service.price * hours : service.price;
-
-        // Upravený formát pro hodinové služby
-        const serviceName = hours
-          ? `${service.name.replace('/ 1h', '')} (${hours} h)`
-          : service.name;
-
-        return `
-          <tr>
-            <td>${serviceName}</td>
-            <td style="white-space: nowrap;">${Math.round(totalServicePrice).toLocaleString()} Kč</td>
-          </tr>
-        `;
-      })
-      .join('');
-
-    return `
-      <h2>${packageName}</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Služba</th>
-            <th>Cena</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${packageServices}
-        </tbody>
-      </table>
-    `;
-  };
-
-  const interiorServices = generateServiceTable('interior');
-  const exteriorServices = generateServiceTable('exterior');
-
-  const additionalChargesTable = additionalCharges
-    .filter(charge => charge.amount > 0)
-    .map((charge) => `
-      <tr>
-        <td>${charge.description}</td>
-        <td style="white-space: nowrap;">${Math.round(charge.amount).toLocaleString()} Kč</td>
-      </tr>
-    `).join('');
-
-  const packageTables = Object.entries(selectedPackages).map(([packageName, services]) =>
-    generatePackageTable(packageName, services)
-  ).join('');
-
-  const pdfContent = `
-    <!DOCTYPE html>
-    <html lang="cs">
-    <html>
-      <head>
-        <title>Faktura - MV Auto Detailing</title>
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            line-height: 1.6;
-          }
-          .logo {
-            max-width: 150px;
-            display: block;
-            margin: 0 auto 20px;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-          }
-          th, td {
-            border: 1px solid #e0e0e0;
-            padding: 8px;
-            text-align: left;
-          }
-          th {
-            background-color: #f0f0e0;
-          }
-          h1, h2 {
-            text-align: center;
-            color: #333;
-            border-bottom: 2px solid #4a90e2;
-            padding-bottom: 10px;
-          }
-          .section-note {
-            background-color: #f9f9f9;
-            border: 1px solid #e0e0e0;
-            padding: 10px;
-            margin-bottom: 20px;
-            text-align: center;
-            font-style: italic;
-          }
-          .final-price {
-            font-weight: bold;
-            color: black;
-          }
-          .highlight {
-            font-weight: bold;
-            color: red;
-          }
-        </style>
-      </head>
-      <body>
-        <img src="./Logo.png" alt="Logo firmy" class="logo" />
-        <h1>MV Auto Detailing - Faktura</h1>
-
-        <h2>Zákaznické údaje</h2>
-        <p><strong>Zákazník:</strong> ${customerName}</p>
-        <p><strong>Telefon:</strong> ${customerPhone}</p>
-        <p><strong>Poznámky k vozidlu:</strong> ${vehicleNotes}</p>
-        <p><strong>Datum:</strong> ${new Date().toLocaleDateString('cs-CZ')}</p>
-
-        ${!interiorServices && !exteriorServices && !packageTables ?
-          '<div class="section-note">Nebyly vybrány žádné služby</div>' :
-          `
-            ${packageTables}
-            ${interiorServices}
-            ${exteriorServices}
-          `
-        }
-
-        ${additionalCharges.some(charge => charge.amount > 0) ? `
-          <h2>Dodatečné náklady</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Popis</th>
-                <th>Cena</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${additionalChargesTable}
-            </tbody>
-          </table>
-        ` : ''}
-
-        <h2>Shrnutí</h2>
+      return categoryServices.length > 0 ? `
+        <h2>${category === 'interior' ? 'Interiér' : 'Exteriér'}</h2>
         <table>
+          <thead>
+            <tr>
+              <th>Služba</th>
+              <th>Cena</th>
+            </tr>
+          </thead>
           <tbody>
-            <tr>
-              <td>Celková cena služeb</td>
-              <td>${totalPrice.toLocaleString()} Kč</td>
-            </tr>
-            ${discount > 0 ? `
-              <tr>
-                <td>Sleva (${discount}%)</td>
-                <td style="white-space: nowrap;">-${Math.round(discountAmount).toLocaleString()} Kč</td>
-              </tr>
-            ` : ''}
-            ${carSize === 'XL' ? `
-              <tr>
-                <td>Příplatek za vůz XL (${CAR_SIZE_MARKUP * 100}%)</td>
-                <td style="white-space: nowrap;">+${Math.round(totalPrice * CAR_SIZE_MARKUP).toLocaleString()} Kč</td>
-              </tr>
-            ` : ''}
-            <tr>
-              <td class="final-price">Konečná cena k zaplacení</td>
-              <td class="final-price">${Math.round(finalPrice).toLocaleString()} Kč</td>
-            </tr>
+            ${categoryServices.join('')}
           </tbody>
         </table>
+      ` : '';
+    };
 
-        ${additionalNotes ? `
-          <div class="highlight">
-            <h2>Poznámky</h2>
-            <p>${additionalNotes}</p>
-          </div>
-        ` : ''}
+    const generatePackageTable = (packageName, services) => {
+      const packageServices = services
+        .map(serviceId => {
+          const service = [...serviceGroups.interior.flatMap(group => group.services || group.options || []),
+                           ...serviceGroups.exterior.flatMap(group => group.services || group.options || [])]
+                          .find(service => service.id === serviceId);
+          const hours = service?.hourly ? serviceHours[service.id] || 1 : null;
+          const totalServicePrice = hours ? service.price * hours : service.price;
 
-        <p style="text-align: center; margin-top: 20px;">Děkujeme za Vaši důvěru a těšíme se na další spolupráci.</p>
-      </body>
-    </html>
-  `;
+          // Upravený formát pro hodinové služby
+          const serviceName = hours
+            ? `${service.name.replace('/ 1h', '')} (${hours} h)`
+            : service.name;
 
-  const printWindow = window.open('', '', 'height=500, width=800');
-  printWindow.document.write(pdfContent);
-  printWindow.document.close();
-  printWindow.print();
-};
+          return `
+            <tr>
+              <td>${serviceName}</td>
+              <td style="white-space: nowrap;">${Math.round(totalServicePrice).toLocaleString()} Kč</td>
+            </tr>
+          `;
+        })
+        .join('');
 
-  
-  
-  
+      return `
+        <h2>${packageName}</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Služba</th>
+              <th>Cena</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${packageServices}
+          </tbody>
+        </table>
+      `;
+    };
+
+    const interiorServices = generateServiceTable('interior');
+    const exteriorServices = generateServiceTable('exterior');
+
+    const additionalChargesTable = additionalCharges
+      .filter(charge => charge.amount > 0)
+      .map((charge) => `
+        <tr>
+          <td>${charge.description}</td>
+          <td style="white-space: nowrap;">${Math.round(charge.amount).toLocaleString()} Kč</td>
+        </tr>
+      `).join('');
+
+    const packageTables = Object.entries(selectedPackages).map(([packageName, services]) =>
+      generatePackageTable(packageName, services)
+    ).join('');
+
+    const pdfContent = `
+      <!DOCTYPE html>
+      <html lang="cs">
+      <html>
+        <head>
+          <title>Faktura - MV Auto Detailing</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              max-width: 800px;
+              margin: 0 auto;
+              padding: 20px;
+              line-height: 1.6;
+            }
+            .logo {
+              max-width: 150px;
+              display: block;
+              margin: 0 auto 20px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+            }
+            th, td {
+              border: 1px solid #e0e0e0;
+              padding: 8px;
+              text-align: left;
+            }
+            th {
+              background-color: #f0f0e0;
+            }
+            h1, h2 {
+              text-align: center;
+              color: #333;
+              border-bottom: 2px solid #4a90e2;
+              padding-bottom: 10px;
+            }
+            .section-note {
+              background-color: #f9f9f9;
+              border: 1px solid #e0e0e0;
+              padding: 10px;
+              margin-bottom: 20px;
+              text-align: center;
+              font-style: italic;
+            }
+            .final-price {
+              font-weight: bold;
+              color: black;
+            }
+            .highlight {
+              font-weight: bold;
+              color: red;
+            }
+          </style>
+        </head>
+        <body>
+          <img src="./Logo.png" alt="Logo firmy" class="logo" />
+          <h1>MV Auto Detailing - Faktura</h1>
+
+          <h2>Zákaznické údaje</h2>
+          <p><strong>Zákazník:</strong> ${customerName}</p>
+          <p><strong>Telefon:</strong> ${customerPhone}</p>
+          <p><strong>Poznámky k vozidlu:</strong> ${vehicleNotes}</p>
+          <p><strong>Datum:</strong> ${new Date().toLocaleDateString('cs-CZ')}</p>
+
+          ${!interiorServices && !exteriorServices && !packageTables ?
+            '<div class="section-note">Nebyly vybrány žádné služby</div>' :
+            `
+              ${packageTables}
+              ${interiorServices}
+              ${exteriorServices}
+            `
+          }
+
+          ${additionalCharges.some(charge => charge.amount > 0) ? `
+            <h2>Dodatečné náklady</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Popis</th>
+                  <th>Cena</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${additionalChargesTable}
+              </tbody>
+            </table>
+          ` : ''}
+
+          <h2>Shrnutí</h2>
+          <table>
+            <tbody>
+              <tr>
+                <td>Celková cena služeb</td>
+                <td>${totalPrice.toLocaleString()} Kč</td>
+              </tr>
+              ${discount > 0 ? `
+                <tr>
+                  <td>Sleva (${discount}%)</td>
+                  <td style="white-space: nowrap;">-${Math.round(discountAmount).toLocaleString()} Kč</td>
+                </tr>
+              ` : ''}
+              ${carSize === 'XL' ? `
+                <tr>
+                  <td>Příplatek za vůz XL (${CAR_SIZE_MARKUP * 100}%)</td>
+                  <td style="white-space: nowrap;">+${Math.round(totalPrice * CAR_SIZE_MARKUP).toLocaleString()} Kč</td>
+                </tr>
+              ` : ''}
+              <tr>
+                <td class="final-price">Konečná cena k zaplacení</td>
+                <td class="final-price">${Math.round(finalPrice).toLocaleString()} Kč</td>
+              </tr>
+            </tbody>
+          </table>
+
+          ${additionalNotes ? `
+            <div class="highlight">
+              <h2>Poznámky</h2>
+              <p>${additionalNotes}</p>
+            </div>
+          ` : ''}
+
+          <p style="text-align: center; margin-top: 20px;">Děkujeme za Vaši důvěru a těšíme se na další spolupráci.</p>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '', 'height=500, width=800');
+    printWindow.document.write(pdfContent);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
   return (
     <button
       onClick={generatePDF}
@@ -268,6 +261,217 @@ const PDFGenerator = ({
     >
       Generovat fakturu
     </button>
+  );
+};
+
+const PriceListModal = ({ serviceGroups, onClose }) => {
+  const generatePriceListPDF = () => {
+    const pdfContent = `
+    <!DOCTYPE html>
+    <html lang="cs">
+    <head>
+      <title>Ceník služeb MV Auto Detailing</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 20px;
+          line-height: 1.6;
+        }
+        h1 {
+          text-align: center;
+          color: #333;
+          border-bottom: 2px solid #4a90e2;
+          padding-bottom: 10px;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 20px;
+        }
+        th, td {
+          border: 1px solid #e0e0e0;
+          padding: 8px;
+          text-align: left;
+          white-space: nowrap;
+          max-width: 600px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        th {
+          background-color: #f0f0e0;
+        }
+        .category-header {
+          background-color: #f4f4f4;
+          font-weight: bold;
+          text-align: center;
+        }
+      </style>
+    </head>
+    <body>
+      <h1>Ceník služeb MV Auto Detailing</h1>
+
+      <h2>Interiér</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Služba</th>
+            <th>Cena</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${Object.values(serviceGroups.interior)
+            .flatMap(group => group.services || group.options || [])
+            .map(service => `
+              <tr>
+                <td>${service.name}</td>
+                <td>${service.price.toLocaleString()} Kč${service.hourly ? ' / hod' : ''}</td>
+              </tr>
+            `).join('')}
+        </tbody>
+      </table>
+
+      <h2>Exteriér</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Služba</th>
+            <th>Cena</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${Object.values(serviceGroups.exterior)
+            .flatMap(group => group.services || group.options || [])
+            .map(service => `
+              <tr>
+                <td>${service.name}</td>
+                <td>${service.price.toLocaleString()} Kč${service.hourly ? ' / hod' : ''}</td>
+              </tr>
+            `).join('')}
+        </tbody>
+      </table>
+    </body>
+    </html>
+  `;
+
+    const printWindow = window.open('', '', 'height=500, width=800');
+    printWindow.document.write(pdfContent);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+      <div className="bg-white p-8 rounded-lg max-w-4xl max-h-[90vh] overflow-y-auto">
+        <h2 className="text-2xl font-bold mb-6">Ceník služeb MV Auto Detailing</h2>
+
+        <div className="space-y-6">
+          {Object.entries(serviceGroups).map(([category, groups]) => (
+            <div key={category}>
+              <h3 className="text-xl font-semibold mb-4">
+                {category === 'interior' ? 'Interiér' : 'Exteriér'}
+              </h3>
+              {groups.map(group => (
+                <div key={group.id} className="mb-4">
+                  <h4 className="font-medium text-lg mb-2">{group.name}</h4>
+                  <table className="w-full border-collapse">
+                    <tbody>
+                      {(group.services || group.options || []).map(service => (
+                        <tr key={service.id} className="border-b">
+                          <td className="py-2">{service.name}</td>
+                          <td className="py-2 text-right font-bold">
+                            {service.price.toLocaleString()} Kč
+                            {service.hourly ? ' / hod' : ''}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={generatePriceListPDF}
+          className="mt-6 w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
+        >
+          Generovat PDF ceníku
+        </button>
+
+        <button
+          onClick={onClose}
+          className="mt-2 w-full bg-gray-500 text-white py-2 rounded hover:bg-gray-600"
+        >
+          Zavřít ceník
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const SavedRecordsModal = ({ records, onClose, onLoadRecord }) => {
+  const deleteRecord = (index) => {
+    const updatedRecords = records.filter((_, i) => i !== index);
+    localStorage.setItem('autoDetailingRecords', JSON.stringify(updatedRecords));
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+      <div className="bg-white p-8 rounded-lg max-w-4xl max-w-full w-[600px] max-h-[90vh] overflow-y-auto">
+        <h2 className="text-2xl font-bold mb-6 flex items-center">
+          <List className="mr-2" /> Uložené záznamy
+        </h2>
+
+        {records.length === 0 ? (
+          <p className="text-center text-gray-500">Žádné uložené záznamy</p>
+        ) : (
+          <div className="space-y-4">
+            {records.map((record, index) => (
+              <div
+                key={index}
+                className="border rounded p-4 flex justify-between items-center hover:bg-gray-50"
+              >
+                <div>
+                  <p className="font-medium">{record.customerName}</p>
+                  <p className="text-sm text-gray-600">
+                    {new Date(record.timestamp).toLocaleString()}
+                  </p>
+                  <p className="text-blue-600 font-bold">
+                    {Math.round(record.finalPrice).toLocaleString()} Kč
+                  </p>
+                  <p className="text-gray-700">{record.vehicleNotes}</p>
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => onLoadRecord(record)}
+                    className="bg-blue-500 text-white px-3 py-1 rounded"
+                  >
+                    Načíst
+                  </button>
+                  <button
+                    onClick={() => deleteRecord(index)}
+                    className="bg-red-500 text-white px-3 py-1 rounded"
+                  >
+                    Smazat
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          onClick={onClose}
+          className="mt-6 w-full bg-gray-500 text-white py-2 rounded hover:bg-gray-600"
+        >
+          Zavřít
+        </button>
+      </div>
+    </div>
   );
 };
 
@@ -286,6 +490,8 @@ const AutoDetailingCalculator = () => {
   const [additionalCharges, setAdditionalCharges] = useState([{ description: '', amount: 0 }]);
   const [additionalNotes, setAdditionalNotes] = useState('');
   const [selectedPackages, setSelectedPackages] = useState({});
+  const [showPriceList, setShowPriceList] = useState(false);
+  const [showSavedRecords, setShowSavedRecords] = useState(false);
 
   const serviceGroups = {
     interior: [
@@ -551,11 +757,6 @@ const AutoDetailingCalculator = () => {
     const additionalChargesSum = additionalCharges.reduce((sum, charge) => sum + charge.amount, 0);
     const final = sum - discountAmt + additionalChargesSum;
 
-    console.log('Celková cena:', sum);
-    console.log('Sleva:', discountAmt);
-    console.log('Dodatečné náklady:', additionalChargesSum);
-    console.log('Konečná cena:', final);
-
     // Nastavení cen do stavu
     setTotalPrice(sum);
     setDiscountAmount(discountAmt);
@@ -644,8 +845,21 @@ const AutoDetailingCalculator = () => {
 
   const handleAdditionalChargeChange = (index, field, value) => {
     const newCharges = [...additionalCharges];
-    // Odstraň úvodní nuly před převodem na číslo
-    newCharges[index][field] = field === 'amount' ? Number(value.replace(/^0+/, '')) : value;
+
+    // If it's the amount field, ensure it's a positive number
+    if (field === 'amount') {
+      let numValue = '';
+      if (value !== '' && value !== null && value !== undefined) {
+        // Přidejte kontrolu, zda je value řetězec
+        const stringValue = String(value);
+        numValue = Number(stringValue.replace(/^0+/, '').replace(/[^0-9.]/g, ''));
+        numValue = numValue > 0 ? numValue : '';
+      }
+      newCharges[index][field] = numValue;
+    } else {
+      newCharges[index][field] = value;
+    }
+
     setAdditionalCharges(newCharges);
   };
 
@@ -653,16 +867,172 @@ const AutoDetailingCalculator = () => {
     setAdditionalCharges([...additionalCharges, { description: '', amount: 0 }]);
   };
 
+  const saveRecord = () => {
+    const recordToSave = {
+      customerName,
+      customerPhone,
+      vehicleNotes,
+      selectedServices: Array.from(selectedServices),
+      serviceVariants,
+      carSize,
+      totalPrice,
+      discount,
+      finalPrice,
+      additionalCharges,
+      additionalNotes,
+      selectedPackages,
+      timestamp: new Date().toISOString()
+    };
+
+    const existingRecords = JSON.parse(localStorage.getItem('autoDetailingRecords') || '[]');
+    const updatedRecords = [...existingRecords, recordToSave];
+    localStorage.setItem('autoDetailingRecords', JSON.stringify(updatedRecords));
+
+    alert('Záznam byl úspěšně uložen');
+  };
+
+  const loadRecord = (record) => {
+    setCustomerName(record.customerName);
+    setCustomerPhone(record.customerPhone);
+    setVehicleNotes(record.vehicleNotes);
+    setSelectedServices(new Set(record.selectedServices));
+    setServiceVariants(record.serviceVariants);
+    setCarSize(record.carSize);
+    setDiscount(record.discount);
+    setAdditionalCharges(record.additionalCharges);
+    setAdditionalNotes(record.additionalNotes);
+    setSelectedPackages(record.selectedPackages);
+    setShowSavedRecords(false);
+  };
+
+  const generatePriceListPDF = (serviceGroups) => {
+    const pdfContent = `
+      <!DOCTYPE html>
+      <html lang="cs">
+      <head>
+        <title>Ceník služeb MV Auto Detailing</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+          }
+          h1 {
+            text-align: center;
+            color: #333;
+            border-bottom: 2px solid #4a90e2;
+            padding-bottom: 10px;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+          }
+          th, td {
+            border: 1px solid #e0e0e0;
+            padding: 8px;
+            text-align: left;
+            white-space: nowrap;
+            max-width: 600px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          th {
+            background-color: #f0f0e0;
+          }
+          .category-header {
+            background-color: #f4f4f4;
+            font-weight: bold;
+            text-align: center;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Ceník služeb MV Auto Detailing</h1>
+
+        <h2>Interiér</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Služba</th>
+              <th>Cena</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${Object.values(serviceGroups.interior)
+              .flatMap(group => group.services || group.options || [])
+              .map(service => `
+                <tr>
+                  <td>${service.name}</td>
+                  <td>${service.price.toLocaleString()} Kč${service.hourly ? ' / hod' : ''}</td>
+                </tr>
+              `).join('')}
+          </tbody>
+        </table>
+
+        <h2>Exteriér</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Služba</th>
+              <th>Cena</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${Object.values(serviceGroups.exterior)
+              .flatMap(group => group.services || group.options || [])
+              .map(service => `
+                <tr>
+                  <td>${service.name}</td>
+                  <td>${service.price.toLocaleString()} Kč${service.hourly ? ' / hod' : ''}</td>
+                </tr>
+              `).join('')}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '', 'height=500, width=800');
+    printWindow.document.write(pdfContent);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
   return (
-    <div className="max-w-4xl mx-auto p-4 space-y-6">
-      <div className="flex items-center justify-between bg-white p-6 rounded-lg shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="bg-blue-600 text-white p-4 rounded-full">
-            <Calculator size={32} />
+    <>
+      <div className="max-w-4xl mx-auto p-4 space-y-6">
+        <div className="flex justify-between space-x-2 flex-wrap">
+          <div className="flex items-center gap-4 w-full sm:w-auto mb-4 sm:mb-0">
+            <div className="bg-blue-600 text-white p-4 rounded-full">
+              <Calculator size={32} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">MV Auto Detailing</h1>
+              <p className="text-gray-500">Kalkulace služeb</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">MV Auto Detailing</h1>
-            <p className="text-gray-500">Kalkulace služeb</p>
+
+          <div className="flex space-x-2 w-full sm:w-auto justify-end">
+            <Button
+              variant="outline"
+              onClick={() => generatePriceListPDF(serviceGroups)}
+              className="mb-2 sm:mb-0 w-full sm:w-auto"
+            >
+              <List className="mr-2" /> Ceník
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const records = JSON.parse(localStorage.getItem('autoDetailingRecords') || '[]');
+                setShowSavedRecords(true);
+              }}
+              className="mb-2 sm:mb-0 w-full sm:w-auto"
+            >
+              <List className="mr-2" /> Uložené záznamy
+            </Button>
           </div>
         </div>
       </div>
@@ -704,7 +1074,6 @@ const AutoDetailingCalculator = () => {
         </CardContent>
       </Card>
 
-      
       <Card>
         <CardContent className="pt-6">
           <div className="space-y-6">
@@ -740,7 +1109,7 @@ const AutoDetailingCalculator = () => {
           </div>
         </CardContent>
       </Card>
-      
+
       <Card className="bg-gray-50">
         <CardContent className="pt-6">
           <div className="space-y-4">
@@ -794,7 +1163,7 @@ const AutoDetailingCalculator = () => {
                   value={charge.amount}
                   onChange={(e) => handleAdditionalChargeChange(index, 'amount', Number(e.target.value))}
                   className="w-24 p-2 border rounded"
-                  placeholder="Částka Kč"
+                  placeholder="Kč"
                 />
               </div>
             ))}
@@ -863,23 +1232,46 @@ const AutoDetailingCalculator = () => {
         </CardContent>
       </Card>
 
-      <PDFGenerator
-        customerName={customerName}
-        customerPhone={customerPhone}
-        vehicleNotes={vehicleNotes}
-        serviceGroups={serviceGroups}
-        selectedServices={selectedServices}
-        serviceHours={serviceHours}
-        totalPrice={totalPrice}
-        discount={discount}
-        discountAmount={discountAmount}
-        carSize={carSize}
-        finalPrice={finalPrice}
-        additionalCharges={additionalCharges}
-        additionalNotes={additionalNotes}
-        selectedPackages={selectedPackages}
-      />
-    </div>
+      <div className="flex justify-between space-x-2 mt-4 mb-4 mx-4">
+        <button
+          onClick={saveRecord}
+          className="bg-blue-500 text-white px-4 py-2 rounded"
+        >
+          Uložit záznam
+        </button>
+        <PDFGenerator
+          customerName={customerName}
+          customerPhone={customerPhone}
+          vehicleNotes={vehicleNotes}
+          serviceGroups={serviceGroups}
+          selectedServices={selectedServices}
+          serviceHours={serviceHours}
+          totalPrice={totalPrice}
+          discount={discount}
+          discountAmount={discountAmount}
+          carSize={carSize}
+          finalPrice={finalPrice}
+          additionalCharges={additionalCharges}
+          additionalNotes={additionalNotes}
+          selectedPackages={selectedPackages}
+        />
+      </div>
+
+      {showPriceList && (
+        <PriceListModal
+          serviceGroups={serviceGroups}
+          onClose={() => setShowPriceList(false)}
+        />
+      )}
+
+      {showSavedRecords && (
+        <SavedRecordsModal
+          records={JSON.parse(localStorage.getItem('autoDetailingRecords') || '[]')}
+          onClose={() => setShowSavedRecords(false)}
+          onLoadRecord={loadRecord}
+        />
+      )}
+    </>
   );
 };
 
