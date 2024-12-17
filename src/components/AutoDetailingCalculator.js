@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/Card';
 import { Button } from './ui/Button';
-import { Printer, Download, Calculator } from 'lucide-react';
+import { Printer, Download, Calculator, List } from 'lucide-react';
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import CZFontPDF from "./CZFontPDF-normal.js"; // váš vlastní font
@@ -24,7 +24,6 @@ const PDFGenerator = ({
   additionalCharges,
   additionalNotes,
   selectedPackages
-  
 }) => {
   const generatePDF = () => {
     const generateServiceTable = (category) => {
@@ -51,17 +50,9 @@ const PDFGenerator = ({
                 </tr>
               `;
             })
-        )
-        const additionalChargesTable = additionalCharges
-      .filter(charge => charge.amount > 0)
-      .map((charge) => `
-        <tr>
-          <td>${charge.description}</td>
-          <td style="white-space: nowrap;">${Math.round(charge.amount).toLocaleString()} Kč</td>
-        </tr>
-      `).join('');
+        );
 
-      return categoryServices ? `
+      return categoryServices.length > 0 ? `
         <h2>${category === 'interior' ? 'Interiér' : 'Exteriér'}</h2>
         <table>
           <thead>
@@ -71,7 +62,7 @@ const PDFGenerator = ({
             </tr>
           </thead>
           <tbody>
-            ${categoryServices}
+            ${categoryServices.join('')}
           </tbody>
         </table>
       ` : '';
@@ -119,12 +110,14 @@ const PDFGenerator = ({
     const interiorServices = generateServiceTable('interior');
     const exteriorServices = generateServiceTable('exterior');
 
-    const additionalChargesTable = additionalCharges.map((charge, index) => `
-  <tr>
-    <td>${charge.description}</td>
-    <td style="white-space: nowrap;">${Math.round(charge.amount).toLocaleString()} Kč</td>
-  </tr>
-`).join('');
+    const additionalChargesTable = additionalCharges
+      .filter(charge => charge.amount > 0)
+      .map((charge) => `
+        <tr>
+          <td>${charge.description}</td>
+          <td style="white-space: nowrap;">${Math.round(charge.amount).toLocaleString()} Kč</td>
+        </tr>
+      `).join('');
 
     const packageTables = Object.entries(selectedPackages).map(([packageName, services]) =>
       generatePackageTable(packageName, services)
@@ -199,8 +192,9 @@ const PDFGenerator = ({
           ${!interiorServices && !exteriorServices && !packageTables ?
             '<div class="section-note">Nebyly vybrány žádné služby</div>' :
             `
-              
               ${packageTables}
+              ${interiorServices}
+              ${exteriorServices}
             `
           }
 
@@ -238,15 +232,9 @@ const PDFGenerator = ({
                   <td style="white-space: nowrap;">+${Math.round(totalPrice * CAR_SIZE_MARKUP).toLocaleString()} Kč</td>
                 </tr>
               ` : ''}
-              ${additionalCharges.length > 0 ? `
-                <tr>
-                  <td>Dodatečné náklady</td>
-                  <td style="white-space: nowrap;">+${Math.round(additionalCharges.reduce((sum, charge) => sum + charge.amount, 0)).toLocaleString()} Kč</td>
-                </tr>
-              ` : ''}
-              <tr class="final-price">
-                <td>Konečná cena k zaplacení</td>
-                <td style="white-space: nowrap;">${Math.round(finalPrice).toLocaleString()} Kč</td>
+              <tr>
+                <td class="final-price">Konečná cena k zaplacení</td>
+                <td class="final-price">${Math.round(finalPrice).toLocaleString()} Kč</td>
               </tr>
             </tbody>
           </table>
@@ -279,6 +267,113 @@ const PDFGenerator = ({
   );
 };
 
+const PriceListModal = ({ serviceGroups, onClose }) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+      <div className="bg-white p-8 rounded-lg max-w-4xl max-h-[90vh] overflow-y-auto">
+        <h2 className="text-2xl font-bold mb-6">Ceník služeb MV Auto Detailing</h2>
+
+        <div className="space-y-6">
+          {Object.entries(serviceGroups).map(([category, groups]) => (
+            <div key={category}>
+              <h3 className="text-xl font-semibold mb-4">
+                {category === 'interior' ? 'Interiér' : 'Exteriér'}
+              </h3>
+              {groups.map(group => (
+                <div key={group.id} className="mb-4">
+                  <h4 className="font-medium text-lg mb-2">{group.name}</h4>
+                  <table className="w-full border-collapse">
+                    <tbody>
+                      {(group.services || group.options || []).map(service => (
+                        <tr key={service.id} className="border-b">
+                          <td className="py-2">{service.name}</td>
+                          <td className="py-2 text-right font-bold">
+                            {service.price.toLocaleString()} Kč
+                            {service.hourly ? ' / hod' : ''}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={onClose}
+          className="mt-6 w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
+        >
+          Zavřít ceník
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const SavedRecordsModal = ({ records, onClose, onLoadRecord }) => {
+  const deleteRecord = (index) => {
+    const updatedRecords = records.filter((_, i) => i !== index);
+    localStorage.setItem('autoDetailingRecords', JSON.stringify(updatedRecords));
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+      <div className="bg-white p-8 rounded-lg max-w-4xl max-w-full w-[600px] max-h-[90vh] overflow-y-auto">
+        <h2 className="text-2xl font-bold mb-6 flex items-center">
+          <List className="mr-2" /> Uložené záznamy
+        </h2>
+
+        {records.length === 0 ? (
+          <p className="text-center text-gray-500">Žádné uložené záznamy</p>
+        ) : (
+          <div className="space-y-4">
+            {records.map((record, index) => (
+              <div
+                key={index}
+                className="border rounded p-4 flex justify-between items-center hover:bg-gray-50"
+              >
+                <div>
+                  <p className="font-medium">{record.customerName}</p>
+                  <p className="text-sm text-gray-600">
+                    {new Date(record.timestamp).toLocaleString()}
+                  </p>
+                  <p className="text-blue-600 font-bold">
+                    {Math.round(record.finalPrice).toLocaleString()} Kč
+                  </p>
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => onLoadRecord(record)}
+                    className="bg-blue-500 text-white px-3 py-1 rounded"
+                  >
+                    Načíst
+                  </button>
+                  <button
+                    onClick={() => deleteRecord(index)}
+                    className="bg-red-500 text-white px-3 py-1 rounded"
+                  >
+                    Smazat
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          onClick={onClose}
+          className="mt-6 w-full bg-gray-500 text-white py-2 rounded hover:bg-gray-600"
+        >
+          Zavřít
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const AutoDetailingCalculator = () => {
   const [carSize, setCarSize] = useState('M');
   const [discount, setDiscount] = useState(15);
@@ -294,6 +389,8 @@ const AutoDetailingCalculator = () => {
   const [additionalCharges, setAdditionalCharges] = useState([{ description: '', amount: 0 }]);
   const [additionalNotes, setAdditionalNotes] = useState('');
   const [selectedPackages, setSelectedPackages] = useState({});
+  const [showPriceList, setShowPriceList] = useState(false);
+  const [showSavedRecords, setShowSavedRecords] = useState(false);
 
   const serviceGroups = {
     interior: [
@@ -414,7 +511,7 @@ const AutoDetailingCalculator = () => {
           { id: 'plastics_ceramic_2y', name: 'Keramická ochrana exteriérových plastů a světel až s 2 roční účinností', price: 1800 },
           { id: 'plastics_ceramic_3y', name: 'Keramická ochrana exteriérových plastů a světel až s 3 roční účinností', price: 2100 },
           { id: 'plastics_ceramic_5y', name: 'Keramická ochrana exteriérových plastů a světel až s 5 roční účinností', price: 2500 }
-          ]
+        ]
       },
       {
         id: 'additional_protection',
@@ -429,7 +526,7 @@ const AutoDetailingCalculator = () => {
         name: 'Další služby',
         services: [
           { id: 'windshield_wipers', name: 'Tekuté stěrače', price: 300 },
-          { id: 'engine_plastic_cleaning', name: 'Čištění a oživení plastů v motorové části vozu', price: 500 },
+          { id: 'engine_plastic_cleaning', name: 'Hloubkové čištění mot. prostoru včetně vnitřní strany kapoty + ošetření mot. plastů', price: 700 },
           { id: 'headlight_renovation', name: 'Renovace předních světel + keramická ochrana až s 1 roční účinností', price: 1000 },
           { id: 'alu_partial_renovation', name: 'Částečná renovace ALU disků / broušení a lakování', price: 500, hourly: true },
           { id: 'scratch_repair', name: 'Oprava škrábanců a retuše po kamínkách / 1h', price: 350, hourly: true }
@@ -440,12 +537,10 @@ const AutoDetailingCalculator = () => {
 
   const packages = {
     'Balíček - Důkladné mytí vozu': {
-      services: ['foam', 'wash', 'wheels', 'door_cleaning'],
-      price: 850 // Celková cena balíčku
+      services: ['foam', 'wash', 'wheels', 'door_cleaning', 'chemical_body', 'chemical_wheels'],
     },
     'Balíček - Keramická ochrana interiéru': {
       services: ['leather_ceramic', 'plastics_ceramic'],
-      price: 2000 // Celková cena balíčku
     }
   };
 
@@ -512,10 +607,7 @@ const AutoDetailingCalculator = () => {
 
   const updatePrices = () => {
     let sum = 0;
-// Přičti ceny balíčků podle jejich celkové ceny
-Object.entries(selectedPackages).forEach(([packageName]) => {
-  sum += packages[packageName].price;
-});
+
     // Projdi všechny služby a přičti jejich ceny
     Object.values(serviceGroups).forEach(category => {
       category.forEach(group => {
@@ -539,9 +631,9 @@ Object.entries(selectedPackages).forEach(([packageName]) => {
       });
     });
 
-    // Přičti ceny balíčků
-    Object.values(selectedPackages).forEach(packageServices => {
-      packageServices.forEach(serviceId => {
+    // Přičti ceny balíčků podle jejich skutečné ceny
+    Object.entries(selectedPackages).forEach(([packageName, serviceIds]) => {
+      serviceIds.forEach(serviceId => {
         const service = [...serviceGroups.interior.flatMap(group => group.services || group.options || []),
                          ...serviceGroups.exterior.flatMap(group => group.services || group.options || [])]
                         .find(service => service.id === serviceId);
@@ -657,7 +749,8 @@ Object.entries(selectedPackages).forEach(([packageName]) => {
 
   const handleAdditionalChargeChange = (index, field, value) => {
     const newCharges = [...additionalCharges];
-    newCharges[index][field] = value;
+    // Odstraň úvodní nuly před převodem na číslo
+    newCharges[index][field] = field === 'amount' ? Number(value.replace(/^0+/, '')) : value;
     setAdditionalCharges(newCharges);
   };
 
@@ -665,18 +758,67 @@ Object.entries(selectedPackages).forEach(([packageName]) => {
     setAdditionalCharges([...additionalCharges, { description: '', amount: 0 }]);
   };
 
+  const saveRecord = () => {
+    const recordToSave = {
+      customerName,
+      customerPhone,
+      vehicleNotes,
+      selectedServices: Array.from(selectedServices),
+      serviceVariants,
+      carSize,
+      totalPrice,
+      discount,
+      finalPrice,
+      additionalCharges,
+      additionalNotes,
+      selectedPackages,
+      timestamp: new Date().toISOString()
+    };
+
+    const existingRecords = JSON.parse(localStorage.getItem('autoDetailingRecords') || '[]');
+    const updatedRecords = [...existingRecords, recordToSave];
+    localStorage.setItem('autoDetailingRecords', JSON.stringify(updatedRecords));
+
+    alert('Záznam byl úspěšně uložen');
+  };
+
+  const loadRecord = (record) => {
+    setCustomerName(record.customerName);
+    setCustomerPhone(record.customerPhone);
+    setVehicleNotes(record.vehicleNotes);
+    setSelectedServices(new Set(record.selectedServices));
+    setServiceVariants(record.serviceVariants);
+    setCarSize(record.carSize);
+    setDiscount(record.discount);
+    setAdditionalCharges(record.additionalCharges);
+    setAdditionalNotes(record.additionalNotes);
+    setSelectedPackages(record.selectedPackages);
+    setShowSavedRecords(false);
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
-      <div className="flex items-center justify-between bg-white p-6 rounded-lg shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="bg-blue-600 text-white p-4 rounded-full">
-            <Calculator size={32} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">MV Auto Detailing</h1>
-            <p className="text-gray-500">Kalkulace služeb</p>
-          </div>
-        </div>
+      <div className="flex justify-end space-x-2">
+        <Button
+          variant="outline"
+          onClick={() => setShowPriceList(true)}
+        >
+          <List className="mr-2" /> Ceník
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => {
+            const records = JSON.parse(localStorage.getItem('autoDetailingRecords') || '[]');
+            setShowSavedRecords(true);
+          }}
+        >
+          <List className="mr-2" /> Uložené záznamy
+        </Button>
+        <Button
+          onClick={saveRecord}
+        >
+          Uložit záznam
+        </Button>
       </div>
 
       <Card>
@@ -753,30 +895,40 @@ Object.entries(selectedPackages).forEach(([packageName]) => {
       </Card>
 
       <Card className="bg-gray-50">
-    <CardContent className="pt-6">
-      <div className="space-y-4">
-        <h3 className="text-lg font-bold mb-4">Balíčky služeb</h3>
-        {Object.entries(packages).map(([packageName, packageDetails]) => (
-          <div 
-            key={packageName} 
-            className="flex items-center space-x-4 cursor-pointer hover:bg-gray-100 p-2 rounded-lg"
-            onClick={() => togglePackage(packageName)}
-          >
-            <input
-              type="checkbox"
-              checked={!!selectedPackages[packageName]}
-              onChange={() => togglePackage(packageName)}
-              className="h-5 w-5 rounded border-gray-300 pointer-events-none"
-            />
-            <div className="flex justify-between w-full items-center">
-              <span className="font-medium whitespace-nowrap">{packageName}</span>
-              <span className="text-blue-600 font-bold whitespace-nowrap ml-4">{packageDetails.price.toLocaleString()} Kč</span>
-            </div>
+        <CardContent className="pt-6">
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold mb-4">Balíčky služeb</h3>
+            {Object.entries(packages).map(([packageName, packageDetails]) => {
+              const packagePrice = packageDetails.services.reduce((sum, serviceId) => {
+                const service = [...serviceGroups.interior.flatMap(group => group.services || group.options || []),
+                                 ...serviceGroups.exterior.flatMap(group => group.services || group.options || [])]
+                                .find(service => service.id === serviceId);
+                return sum + (service ? service.price : 0);
+              }, 0);
+
+              return (
+                <div
+                  key={packageName}
+                  className="flex items-center space-x-4 cursor-pointer hover:bg-gray-100 p-2 rounded-lg"
+                  onClick={() => togglePackage(packageName)}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!selectedPackages[packageName]}
+                    onChange={() => togglePackage(packageName)}
+                    className="h-5 w-5 rounded border-gray-300 pointer-events-none"
+                  />
+                  <div className="flex justify-between w-full items-center">
+                    <span className="font-medium whitespace-nowrap">{packageName}</span>
+                    <span className="text-blue-600 font-bold whitespace-nowrap ml-4">{packagePrice.toLocaleString()} Kč</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        ))}
-      </div>
-    </CardContent>
-  </Card>
+        </CardContent>
+      </Card>
+
       <Card className="bg-gray-50">
         <CardContent className="pt-6">
           <div className="space-y-4">
@@ -880,6 +1032,21 @@ Object.entries(selectedPackages).forEach(([packageName]) => {
         additionalNotes={additionalNotes}
         selectedPackages={selectedPackages}
       />
+
+      {showPriceList && (
+        <PriceListModal
+          serviceGroups={serviceGroups}
+          onClose={() => setShowPriceList(false)}
+        />
+      )}
+
+      {showSavedRecords && (
+        <SavedRecordsModal
+          records={JSON.parse(localStorage.getItem('autoDetailingRecords') || '[]')}
+          onClose={() => setShowSavedRecords(false)}
+          onLoadRecord={loadRecord}
+        />
+      )}
     </div>
   );
 };
