@@ -26,8 +26,9 @@ body::before {
   background-repeat: no-repeat;
   background-position: center;
   background-attachment: fixed; /* Aby se pozadí nehýbalo při skrolování */
-  z-index: 99; /* Umístí pozadí za veškerý obsah */
+  z-index: 0; /* Umístí pozadí za veškerý obsah */
   opacity: 0.05; /* Volitelné: pro zprůhlednění loga */
+  pointer-events: none; /* Ignoruje kliky na pozadí */
 }
 
 
