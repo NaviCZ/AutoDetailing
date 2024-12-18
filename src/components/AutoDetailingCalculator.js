@@ -264,13 +264,15 @@ const PDFGenerator = ({
   );
 };
 
+// Zjisti k čemu to je ?**************************************************************
+
 const PriceListModal = ({ serviceGroups, onClose }) => {
   const generatePriceListPDF = () => {
     const pdfContent = `
     <!DOCTYPE html>
     <html lang="cs">
     <head>
-      <title>Ceník služeb MV Auto Detailing</title>
+      <title>Ceník služeb MV Auto Detailing 2024</title>
       <style>
         body {
           font-family: Arial, sans-serif;
@@ -278,6 +280,11 @@ const PriceListModal = ({ serviceGroups, onClose }) => {
           margin: 0 auto;
           padding: 20px;
           line-height: 1.6;
+        }
+        .logo {
+          max-width: 200px;
+          display: block;
+          margin: 0 auto 20px;
         }
         h1 {
           text-align: center;
@@ -310,7 +317,8 @@ const PriceListModal = ({ serviceGroups, onClose }) => {
       </style>
     </head>
     <body>
-      <h1>Ceník služeb MV Auto Detailing</h1>
+      <img src="./Logo.png" alt="Logo firmy" class="logo" />
+      <h1>Ceník služeb MV Auto Detailing 2024</h1>
 
       <h2>Interiér</h2>
       <table>
@@ -364,7 +372,7 @@ const PriceListModal = ({ serviceGroups, onClose }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
       <div className="bg-white p-8 rounded-lg max-w-4xl max-h-[90vh] overflow-y-auto">
-        <h2 className="text-2xl font-bold mb-6">Ceník služeb MV Auto Detailing</h2>
+        <h2 className="text-2xl font-bold mb-6">2024Ceník služeb MV Auto Detailing</h2>
 
         <div className="space-y-6">
           {Object.entries(serviceGroups).map(([category, groups]) => (
@@ -904,7 +912,7 @@ const AutoDetailingCalculator = () => {
     setSelectedPackages(record.selectedPackages);
     setShowSavedRecords(false);
   };
-
+//**************************************************/ Ceník generování PDF
   const generatePriceListPDF = (serviceGroups) => {
     const pdfContent = `
       <!DOCTYPE html>
@@ -947,10 +955,22 @@ const AutoDetailingCalculator = () => {
             font-weight: bold;
             text-align: center;
           }
+          .logo {
+           display: block;
+          max-width: 100%; /* Nastaví, aby logo nebylo větší než jeho původní velikost */
+          height: auto; /* Zachová poměr stran */
+          width: 150px; /* Nastavíte požadovanou šířku */
+          margin: 0 auto 20px; /* Vycentruje logo a přidá mezeru pod ním */
+          }
+          .year {
+          font-weight: bold; /* Tučné písmo */
+          font-size: 1.2em; /* Zvýšení velikosti písma */
+          }
         </style>
       </head>
       <body>
-        <h1>Ceník služeb MV Auto Detailing</h1>
+         <img src="./Logo.png" alt="Logo firmy" class="logo" />
+         <h1>Ceník služeb MV Auto Detailing - <span class="year">2024</span></h1>
 
         <h2>Interiér</h2>
         <table>
