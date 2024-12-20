@@ -472,7 +472,8 @@ const AutoDetailingCalculator = () => {
           { id: 'seats_textile', name: 'Tepování textilních sedaček', price: 1800 },
           { id: 'seats_textile_sealent', name: 'Textile Sealant - impregnace textilu', price: 1100 },
           { id: 'seats_leather', name: 'Důkladné a šetrné čištění kůže + výživa s impregnací', price: 1600 },
-          { id: 'leather_ceramic', name: 'Důkladné a šetrné čištění kůže + keramická ochrana kůže', price: 2700 }
+          { id: 'leather_ceramic', name: 'Důkladné a šetrné čištění kůže + keramická ochrana kůže', price: 2700 },
+          { id: 'leather_ceramic', name: 'Keramická ochrana kůže', price: 1600 }
         ]
       },
       additional: {
@@ -1207,7 +1208,7 @@ const AutoDetailingCalculator = () => {
       </div>
 
       <GitHubUpdates repoOwner="NaviCZ" repoName="AutoDetailing" />
-      
+
     </>
   );
 };
