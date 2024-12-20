@@ -68,8 +68,8 @@ const PDFGenerator = ({
     const generatePackageTable = (packageName, services) => {
       const packageServices = services
         .map(serviceId => {
-          const service = [...serviceGroups.interior.flatMap(group => group.services || group.options || []),
-                           ...serviceGroups.exterior.flatMap(group => group.services || group.options || [])]
+          const service = [...Object.values(serviceGroups.interior).flatMap(group => group.services || group.options || []),
+                           ...Object.values(serviceGroups.exterior).flatMap(group => group.services || group.options || [])]
                           .find(service => service.id === serviceId);
           const hours = service?.hourly ? serviceHours[service.id] || 1 : null;
           const totalServicePrice = hours ? service.price * hours : service.price;
@@ -264,115 +264,11 @@ const PDFGenerator = ({
   );
 };
 
-// Zjisti k čemu to je ?**************************************************************
-
 const PriceListModal = ({ serviceGroups, onClose }) => {
-  const generatePriceListPDF = () => {
-    const pdfContent = `
-    <!DOCTYPE html>
-    <html lang="cs">
-    <head>
-      <title>Ceník služeb MV Auto Detailing 2024</title>
-      <style>
-        body {
-          font-family: Arial, sans-serif;
-          max-width: 800px;
-          margin: 0 auto;
-          padding: 20px;
-          line-height: 1.6;
-        }
-        .logo {
-          max-width: 200px;
-          display: block;
-          margin: 0 auto 20px;
-        }
-        h1 {
-          text-align: center;
-          color: #333;
-          border-bottom: 2px solid #4a90e2;
-          padding-bottom: 10px;
-        }
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-bottom: 20px;
-        }
-        th, td {
-          border: 1px solid #e0e0e0;
-          padding: 8px;
-          text-align: left;
-          white-space: nowrap;
-          max-width: 600px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        th {
-          background-color: #f0f0e0;
-        }
-        .category-header {
-          background-color: #f4f4f4;
-          font-weight: bold;
-          text-align: center;
-        }
-      </style>
-    </head>
-    <body>
-      <img src="./Logo.png" alt="Logo firmy" class="logo" />
-      <h1>Ceník služeb MV Auto Detailing 2024</h1>
-
-      <h2>Interiér</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Služba</th>
-            <th>Cena</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${Object.values(serviceGroups.interior)
-            .flatMap(group => group.services || group.options || [])
-            .map(service => `
-              <tr>
-                <td>${service.name}</td>
-                <td>${service.price.toLocaleString()} Kč${service.hourly ? ' / hod' : ''}</td>
-              </tr>
-            `).join('')}
-        </tbody>
-      </table>
-
-      <h2>Exteriér</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Služba</th>
-            <th>Cena</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${Object.values(serviceGroups.exterior)
-            .flatMap(group => group.services || group.options || [])
-            .map(service => `
-              <tr>
-                <td>${service.name}</td>
-                <td>${service.price.toLocaleString()} Kč${service.hourly ? ' / hod' : ''}</td>
-              </tr>
-            `).join('')}
-        </tbody>
-      </table>
-    </body>
-    </html>
-  `;
-
-    const printWindow = window.open('', '', 'height=500, width=800');
-    printWindow.document.write(pdfContent);
-    printWindow.document.close();
-    printWindow.print();
-  };
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
       <div className="bg-white p-8 rounded-lg max-w-4xl max-h-[90vh] overflow-y-auto">
-        <h2 className="text-2xl font-bold mb-6">2024Ceník služeb MV Auto Detailing</h2>
+        <h2 className="text-2xl font-bold mb-6">2024 Ceník služeb MV Auto Detailing</h2>
 
         <div className="space-y-6">
           {Object.entries(serviceGroups).map(([category, groups]) => (
@@ -380,7 +276,7 @@ const PriceListModal = ({ serviceGroups, onClose }) => {
               <h3 className="text-xl font-semibold mb-4">
                 {category === 'interior' ? 'Interiér' : 'Exteriér'}
               </h3>
-              {groups.map(group => (
+              {Object.values(groups).map(group => (
                 <div key={group.id} className="mb-4">
                   <h4 className="font-medium text-lg mb-2">{group.name}</h4>
                   <table className="w-full border-collapse">
@@ -401,13 +297,6 @@ const PriceListModal = ({ serviceGroups, onClose }) => {
             </div>
           ))}
         </div>
-
-        <button
-          onClick={generatePriceListPDF}
-          className="mt-6 w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
-        >
-          Generovat PDF ceníku
-        </button>
 
         <button
           onClick={onClose}
@@ -483,6 +372,57 @@ const SavedRecordsModal = ({ records, onClose, onLoadRecord }) => {
   );
 };
 
+const GitHubUpdates = ({ repoOwner, repoName }) => {
+  const [commits, setCommits] = useState([]);
+
+  useEffect(() => {
+    const fetchCommits = async () => {
+      try {
+        const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/commits?per_page=3`);
+        const data = await response.json();
+        setCommits(data);
+      } catch (error) {
+        console.error('Chyba při načítání commitů:', error);
+      }
+    };
+
+    fetchCommits();
+  }, [repoOwner, repoName]);
+
+  const splitCommitMessage = (message) => {
+    // Předpokládáme, že název souboru je první slovo a zbytek je komentář
+    const parts = message.split(' ');
+    const fileName = parts.shift(); // Odebere první prvek (název souboru)
+    const comment = parts.join(' '); // Zbytek je komentář
+    return { fileName, comment };
+  };
+
+  return (
+    <div className="space-y-4 p-4 bg-gray-100 rounded shadow">
+      <h2 className="text-sm font-bold">Poslední aktualizace</h2>
+      {commits.length > 0 ? (
+        <ul className="space-y-2">
+          {commits.map(commit => {
+            const { fileName, comment } = splitCommitMessage(commit.commit.message);
+            const date = new Date(commit.commit.author.date).toLocaleString();
+            const author = commit.commit.author.name;
+            return (
+              <li key={commit.sha} className="border p-2 rounded bg-white shadow-sm">
+                <p className="text-xs font-semibold">{fileName}</p>
+                <p className="text-xs text-gray-500 mt-1">{comment}</p>
+                <p className="text-xs text-gray-500 mt-1">{author} • {date}</p>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="text-sm">Žádné aktualizace k zobrazení.</p>
+      )}
+    </div>
+  );
+};
+
+
 const AutoDetailingCalculator = () => {
   const [carSize, setCarSize] = useState('M');
   const [discount, setDiscount] = useState(15);
@@ -502,9 +442,8 @@ const AutoDetailingCalculator = () => {
   const [showSavedRecords, setShowSavedRecords] = useState(false);
 
   const serviceGroups = {
-    interior: [
-      {
-        id: 'basic',
+    interior: {
+      basic: {
         name: 'Základní služby',
         services: [
           { id: 'vac', name: 'Důkladné vysátí celého vozu vč. zavazadlového prostoru', price: 300 },
@@ -512,33 +451,31 @@ const AutoDetailingCalculator = () => {
           { id: 'perfume', name: 'Provonění interiéru', price: 50 }
         ]
       },
-      {
-        id: 'plastics',
+      plastics: {
         name: 'Péče o plasty',
         services: [
           { id: 'plastics_basic', name: 'Čistění všech plastů v interiéru (madla dveří, řadící páka, pedály, výdechů, kolejniček atd.)', price: 500 },
           { id: 'plastics_premium', name: 'Prémiová impregnace a konzervace plastů', price: 500 }
         ]
       },
-      {
-        id: 'cleaning',
+      cleaning: {
         name: 'Čištění a tepování',
         services: [
           { id: 'carpet_mats', name: 'Tepování texilních koberečků', price: 200 },
           { id: 'carpets', name: 'Tepování podlahových koberců', price: 700 }
         ]
       },
-      {
-        id: 'seats',
+      seats: {
         name: 'Péče o sedačky',
         type: 'select',
         options: [
           { id: 'seats_textile', name: 'Tepování textilních sedaček', price: 1800 },
-          { id: 'seats_leather', name: 'Důkladné a šetrné čištění kůže + výživa a impregnace', price: 1600 }
+          { id: 'seats_textile_sealent', name: 'Textile Sealant - impregnace textilu', price: 1100 },
+          { id: 'seats_leather', name: 'Důkladné a šetrné čištění kůže + výživa s impregnací', price: 1600 },
+          { id: 'leather_ceramic', name: 'Důkladné a šetrné čištění kůže + keramická ochrana kůže', price: 2700 }
         ]
       },
-      {
-        id: 'additional',
+      additional: {
         name: 'Další služby',
         services: [
           { id: 'seal_impregnation', name: 'Impregnace těsnění dveří', price: 200 },
@@ -548,14 +485,12 @@ const AutoDetailingCalculator = () => {
           { id: 'ac_cleaning', name: 'Čištění klimatizace a interiéru ozónem', price: 300 },
           { id: 'steam_cleaning', name: 'Parní hloubkové čištění / 1h', price: 350, hourly: true },
           { id: 'leather_renovation', name: 'Renovace kůže autosedaček 2ks', price: 1000 },
-          { id: 'leather_ceramic', name: 'Keramika na kůži', price: 1200 },
           { id: 'plastics_ceramic', name: 'Keramika na plasty v interiéru', price: 800 }
         ]
       }
-    ],
-    exterior: [
-      {
-        id: 'basic_exterior',
+    },
+    exterior: {
+      basic_exterior: {
         name: 'Základní mytí',
         services: [
           { id: 'foam', name: 'Předmytí aktivní pěnou', price: 100 },
@@ -564,8 +499,7 @@ const AutoDetailingCalculator = () => {
           { id: 'door_cleaning', name: 'Mytí a hloubkové čištění mezidveřních prostor včetně ochrany', price: 250 }
         ]
       },
-      {
-        id: 'decontamination',
+      decontamination: {
         name: 'Dekontaminace',
         services: [
           { id: 'clay_mechanical', name: 'Mechanická dekontaminace CLAY', price: 900 },
@@ -573,16 +507,14 @@ const AutoDetailingCalculator = () => {
           { id: 'chemical_wheels', name: 'Chemická dekontaminace 4 kol - PH neutral', price: 250 }
         ]
       },
-      {
-        id: 'windows',
+      windows: {
         name: 'Ošetření oken',
         services: [
           { id: 'window_polish', name: 'Vyleštění všech oken z obou stran', price: 300 },
           { id: 'glass_ceramic_1y', name: 'Keramická ochrana všech skel až s 1 roční účinností', price: 700 }
         ]
       },
-      {
-        id: 'waxing',
+      waxing: {
         name: 'Vosk',
         type: 'select',
         options: [
@@ -590,8 +522,7 @@ const AutoDetailingCalculator = () => {
           { id: 'quick_wax', name: 'Rychlovosk', price: 600 }
         ]
       },
-      {
-        id: 'polish',
+      polish: {
         name: 'Leštění',
         type: 'select',
         options: [
@@ -600,8 +531,7 @@ const AutoDetailingCalculator = () => {
           { id: 'polish_multi_step', name: 'Leštění vícekrokovou pastou až 95% defektů laku', price: 9000 }
         ]
       },
-      {
-        id: 'ceramic_protection',
+      ceramic_protection: {
         name: 'Keramická ochrana laku',
         type: 'select',
         options: [
@@ -611,8 +541,7 @@ const AutoDetailingCalculator = () => {
           { id: 'ceramic_5y', name: 'Keramická ochrana laku až s 5 roční účinností / dvě vrstvy', price: 12000 }
         ]
       },
-      {
-        id: 'ceramic_extras',
+      ceramic_extras: {
         name: 'Keramická ochrana exteriérových plastů a světel ',
         type: 'select',
         options: [
@@ -622,16 +551,14 @@ const AutoDetailingCalculator = () => {
           { id: 'plastics_ceramic_5y', name: 'Keramická ochrana exteriérových plastů a světel až s 5 roční účinností', price: 2500 }
         ]
       },
-      {
-        id: 'additional_protection',
+      additional_protection: {
         name: 'Další ochrany',
         services: [
           { id: 'plastic_tire_impregnation', name: 'Impregnace venkovních plastů a pneu', price: 300 },
           { id: 'alu_ceramic_1y', name: 'Keramická ochrana ALU disků až s 1 roční účinností+leštění', price: 1000 }
         ]
       },
-      {
-        id: 'additional_exterior',
+      additional_exterior: {
         name: 'Další služby',
         services: [
           { id: 'windshield_wipers', name: 'Tekuté stěrače', price: 300 },
@@ -641,7 +568,7 @@ const AutoDetailingCalculator = () => {
           { id: 'scratch_repair', name: 'Oprava škrábanců a retuše po kamínkách / 1h', price: 350, hourly: true }
         ]
       }
-    ]
+    }
   };
 
   const packages = {
@@ -693,8 +620,8 @@ const AutoDetailingCalculator = () => {
     } else {
       newSelected.add(id);
       const service =
-        [...serviceGroups.interior.flatMap(group => group.services || group.options || []),
-         ...serviceGroups.exterior.flatMap(group => group.services || group.options || [])]
+        [...Object.values(serviceGroups.interior).flatMap(group => group.services || group.options || []),
+         ...Object.values(serviceGroups.exterior).flatMap(group => group.services || group.options || [])]
           .find(service => service.id === id);
 
       if (service?.hourly) {
@@ -719,7 +646,7 @@ const AutoDetailingCalculator = () => {
 
     // Projdi všechny služby a přičti jejich ceny
     Object.values(serviceGroups).forEach(category => {
-      category.forEach(group => {
+      Object.values(category).forEach(group => {
         if (group.type === 'select') {
           const selectedOption = group.options.find(opt => opt.id === serviceVariants[group.id]);
           if (selectedOption) {
@@ -743,8 +670,8 @@ const AutoDetailingCalculator = () => {
     // Přičti ceny balíčků podle jejich skutečné ceny
     Object.entries(selectedPackages).forEach(([packageName, serviceIds]) => {
       serviceIds.forEach(serviceId => {
-        const service = [...serviceGroups.interior.flatMap(group => group.services || group.options || []),
-                         ...serviceGroups.exterior.flatMap(group => group.services || group.options || [])]
+        const service = [...Object.values(serviceGroups.interior).flatMap(group => group.services || group.options || []),
+                         ...Object.values(serviceGroups.exterior).flatMap(group => group.services || group.options || [])]
                         .find(service => service.id === serviceId);
         if (service) {
           sum += service.price;
@@ -775,7 +702,7 @@ const AutoDetailingCalculator = () => {
     updatePrices();
   }, [selectedServices, serviceVariants, discount, carSize, serviceHours, additionalCharges, selectedPackages]);
 
-  const renderServiceGroup = (group) => {
+  const renderServiceGroup = (category, group) => {
     if (group.type === 'select') {
       return (
         <div key={group.id} className="space-y-2">
@@ -912,13 +839,13 @@ const AutoDetailingCalculator = () => {
     setSelectedPackages(record.selectedPackages);
     setShowSavedRecords(false);
   };
-//**************************************************/ Ceník generování PDF
-  const generatePriceListPDF = (serviceGroups) => {
+
+  const generatePriceListPDF = () => {
     const pdfContent = `
       <!DOCTYPE html>
       <html lang="cs">
       <head>
-        <title>Ceník služeb MV Auto Detailing</title>
+        <title>Ceník služeb MV Auto Detailing 2024</title>
         <style>
           body {
             font-family: Arial, sans-serif;
@@ -926,6 +853,11 @@ const AutoDetailingCalculator = () => {
             margin: 0 auto;
             padding: 20px;
             line-height: 1.6;
+          }
+          .logo {
+            max-width: 200px;
+            display: block;
+            margin: 0 auto 20px;
           }
           h1 {
             text-align: center;
@@ -955,22 +887,15 @@ const AutoDetailingCalculator = () => {
             font-weight: bold;
             text-align: center;
           }
-          .logo {
-           display: block;
-          max-width: 100%; /* Nastaví, aby logo nebylo větší než jeho původní velikost */
-          height: auto; /* Zachová poměr stran */
-          width: 150px; /* Nastavíte požadovanou šířku */
-          margin: 0 auto 20px; /* Vycentruje logo a přidá mezeru pod ním */
-          }
           .year {
-          font-weight: bold; /* Tučné písmo */
-          font-size: 1.2em; /* Zvýšení velikosti písma */
+            font-weight: bold; /* Tučné písmo */
+            font-size: 1.2em; /* Zvýšení velikosti písma */
           }
         </style>
       </head>
       <body>
-         <img src="./Logo.png" alt="Logo firmy" class="logo" />
-         <h1>Ceník služeb MV Auto Detailing - <span class="year">2024</span></h1>
+        <img src="./Logo.png" alt="Logo firmy" class="logo" />
+        <h1>Ceník služeb MV Auto Detailing - <span class="year">2024</span></h1>
 
         <h2>Interiér</h2>
         <table>
@@ -1038,7 +963,7 @@ const AutoDetailingCalculator = () => {
           <div className="flex space-x-2 w-full sm:w-auto justify-end">
             <Button
               variant="outline"
-              onClick={() => generatePriceListPDF(serviceGroups)}
+              onClick={generatePriceListPDF}
               className="mb-2 sm:mb-0 w-full sm:w-auto"
             >
               <List className="mr-2" /> Ceník
@@ -1112,19 +1037,23 @@ const AutoDetailingCalculator = () => {
             </div>
 
             <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-bold mb-4">Interiér</h3>
-                <div className="space-y-6">
-                  {serviceGroups.interior.map(group => renderServiceGroup(group))}
+              <details open>
+                <summary className="text-lg font-bold mb-4 cursor-pointer">
+                  Interiér
+                </summary>
+                <div className="space-y-6 ml-4">
+                  {Object.entries(serviceGroups.interior).map(([subcategory, group]) => renderServiceGroup('interior', group))}
                 </div>
-              </div>
+              </details>
 
-              <div>
-                <h3 className="text-lg font-bold mb-4">Exteriér</h3>
-                <div className="space-y-6">
-                  {serviceGroups.exterior.map(group => renderServiceGroup(group))}
+              <details open>
+                <summary className="text-lg font-bold mb-4 cursor-pointer">
+                  Exteriér
+                </summary>
+                <div className="space-y-6 ml-4">
+                  {Object.entries(serviceGroups.exterior).map(([subcategory, group]) => renderServiceGroup('exterior', group))}
                 </div>
-              </div>
+              </details>
             </div>
           </div>
         </CardContent>
@@ -1136,8 +1065,8 @@ const AutoDetailingCalculator = () => {
             <h3 className="text-lg font-bold mb-4">Balíčky služeb</h3>
             {Object.entries(packages).map(([packageName, packageDetails]) => {
               const packagePrice = packageDetails.services.reduce((sum, serviceId) => {
-                const service = [...serviceGroups.interior.flatMap(group => group.services || group.options || []),
-                                 ...serviceGroups.exterior.flatMap(group => group.services || group.options || [])]
+                const service = [...Object.values(serviceGroups.interior).flatMap(group => group.services || group.options || []),
+                                 ...Object.values(serviceGroups.exterior).flatMap(group => group.services || group.options || [])]
                                 .find(service => service.id === serviceId);
                 return sum + (service ? service.price : 0);
               }, 0);
@@ -1277,20 +1206,8 @@ const AutoDetailingCalculator = () => {
         />
       </div>
 
-      {showPriceList && (
-        <PriceListModal
-          serviceGroups={serviceGroups}
-          onClose={() => setShowPriceList(false)}
-        />
-      )}
-
-      {showSavedRecords && (
-        <SavedRecordsModal
-          records={JSON.parse(localStorage.getItem('autoDetailingRecords') || '[]')}
-          onClose={() => setShowSavedRecords(false)}
-          onLoadRecord={loadRecord}
-        />
-      )}
+      <GitHubUpdates repoOwner="NaviCZ" repoName="AutoDetailing" />
+      
     </>
   );
 };
