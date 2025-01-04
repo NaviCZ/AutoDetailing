@@ -281,7 +281,7 @@ const PDFGenerator = ({
 };
 
 const AutoDetailingCalculator = () => {
-  const { serviceGroups, packages } = useServiceContext();
+  const { packages } = useServiceContext();
   const [carSize, setCarSize] = useState('M');
   const [discount, setDiscount] = useState(15);
   const [selectedServices, setSelectedServices] = useState(new Set());
