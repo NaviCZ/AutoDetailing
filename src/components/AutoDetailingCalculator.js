@@ -1,4 +1,4 @@
-//AutoDetailingCalculator
+//AutoDetailingCalculator2025
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/Card';
@@ -281,7 +281,7 @@ const PDFGenerator = ({
 };
 
 const AutoDetailingCalculator = () => {
-  const { packages } = useServiceContext();
+  const { serviceGroups, packages } = useServiceContext();
   const [carSize, setCarSize] = useState('M');
   const [discount, setDiscount] = useState(15);
   const [selectedServices, setSelectedServices] = useState(new Set());
@@ -297,159 +297,8 @@ const AutoDetailingCalculator = () => {
   const [additionalNotes, setAdditionalNotes] = useState('');
   const [selectedPackages, setSelectedPackages] = useState({});
 
-  const serviceGroups = {
-    interior: [
-      {
-        id: 'basic',
-        name: 'Základní služby',
-        services: [
-          { id: 'vac', name: 'Důkladné vysátí celého vozu vč. zavazadlového prostoru', price: 300 },
-          { id: 'mats', name: 'Mytí gumových koberečků + prémiová impregnace', price: 150 },
-          { id: 'perfume', name: 'Provonění interiéru', price: 50 }
-        ]
-      },
-      {
-        id: 'plastics',
-        name: 'Péče o plasty',
-        services: [
-          { id: 'plastics_basic', name: 'Čistění všech plastů v interiéru (madla dveří, řadící páka, pedály, výdechů, kolejniček atd.)', price: 500 },
-          { id: 'plastics_premium', name: 'Prémiová impregnace a konzervace plastů', price: 500 }
-        ]
-      },
-      {
-        id: 'cleaning',
-        name: 'Čištění a tepování',
-        services: [
-          { id: 'carpet_mats', name: 'Tepování texilních koberečků', price: 200 },
-          { id: 'carpets', name: 'Tepování podlahových koberců', price: 700 }
-        ]
-      },
-      {
-        id: 'seats',
-        name: 'Péče o sedačky',
-        type: 'select',
-        options: [
-          { id: 'seats_textile', name: 'Tepování textilních sedaček', price: 1800 },
-          { id: 'seats_leather', name: 'Důkladné a šetrné čištění kůže + výživa a impregnace', price: 1600 }
-        ]
-      },
-      {
-        id: 'additional',
-        name: 'Další služby',
-        services: [
-          { id: 'seal_impregnation', name: 'Impregnace těsnění dveří', price: 200 },
-          { id: 'ceiling_cleaning', name: 'Čistění stropnice', price: 500 },
-          { id: 'pet_hair_removal', name: 'Odstranění zvířecích chlupů', price: 300 },
-          { id: 'seatbelt_cleaning', name: 'Čištění bezpečnostních pásů', price: 300 },
-          { id: 'ac_cleaning', name: 'Čištění klimatizace a interiéru ozónem', price: 300 },
-          { id: 'steam_cleaning', name: 'Parní hloubkové čištění / 1h', price: 350, hourly: true },
-          { id: 'leather_renovation', name: 'Renovace kůže autosedaček 2ks', price: 1000 },
-          { id: 'leather_ceramic', name: 'Keramika na kůži', price: 1200 },
-          { id: 'plastics_ceramic', name: 'Keramika na plasty v interiéru', price: 800 }
-        ]
-      }
-    ],
-    exterior: [
-      {
-        id: 'basic_exterior',
-        name: 'Základní mytí',
-        services: [
-          { id: 'foam', name: 'Předmytí aktivní pěnou', price: 100 },
-          { id: 'wash', name: 'Ruční mytí šampónem', price: 400 },
-          { id: 'wheels', name: 'Důkladné mytí kol a pneumatik', price: 100 },
-          { id: 'door_cleaning', name: 'Mytí a hloubkové čištění mezidveřních prostor včetně ochrany', price: 250 }
-        ]
-      },
-      {
-        id: 'decontamination',
-        name: 'Dekontaminace',
-        services: [
-          { id: 'clay_mechanical', name: 'Mechanická dekontaminace CLAY', price: 900 },
-          { id: 'chemical_body', name: 'Chemická dekontaminace laku karoserie - PH neutral', price: 500 },
-          { id: 'chemical_wheels', name: 'Chemická dekontaminace 4 kol - PH neutral', price: 250 }
-        ]
-      },
-      {
-        id: 'windows',
-        name: 'Ošetření oken',
-        services: [
-          { id: 'window_polish', name: 'Vyleštění všech oken z obou stran', price: 300 },
-          { id: 'glass_ceramic_1y', name: 'Keramická ochrana všech skel až s 1 roční účinností', price: 700 }
-        ]
-      },
-      {
-        id: 'waxing',
-        name: 'Vosk',
-        type: 'select',
-        options: [
-          { id: 'hard_wax', name: 'Tuhý vosk', price: 1600 },
-          { id: 'quick_wax', name: 'Rychlovosk', price: 600 }
-        ]
-      },
-      {
-        id: 'polish',
-        name: 'Leštění',
-        type: 'select',
-        options: [
-          { id: 'polish_basic', name: 'Leštění základní: Nepoškozený lak (před aplikací keramické ochrany) nové vozidlo, před aplikací keramické ochrany', price: 5000 },
-          { id: 'polish_one_step', name: 'Leštění jednokrokovou pastou odstranění 60-70% defektů laku', price: 7000 },
-          { id: 'polish_multi_step', name: 'Leštění vícekrokovou pastou až 95% defektů laku', price: 9000 }
-        ]
-      },
-      {
-        id: 'ceramic_protection',
-        name: 'Keramická ochrana laku',
-        type: 'select',
-        options: [
-          { id: 'ceramic_1y', name: 'Keramická ochrana laku s 1 roční účinností', price: 4000 },
-          { id: 'ceramic_2y', name: 'Keramická ochrana laku až s 2 roční účinností', price: 7000 },
-          { id: 'ceramic_3y', name: 'Keramická ochrana laku až s 3 roční účinností', price: 9000 },
-          { id: 'ceramic_5y', name: 'Keramická ochrana laku až s 5 roční účinností / dvě vrstvy', price: 12000 }
-        ]
-      },
-      {
-        id: 'ceramic_extras',
-        name: 'Keramická ochrana exteriérových plastů a světel ',
-        type: 'select',
-        options: [
-          { id: 'plastics_ceramic_1y', name: 'Keramická ochrana exteriérových plastů a světel až s 1 roční účinností', price: 1500 },
-          { id: 'plastics_ceramic_2y', name: 'Keramická ochrana exteriérových plastů a světel až s 2 roční účinností', price: 1800 },
-          { id: 'plastics_ceramic_3y', name: 'Keramická ochrana exteriérových plastů a světel až s 3 roční účinností', price: 2100 },
-          { id: 'plastics_ceramic_5y', name: 'Keramická ochrana exteriérových plastů a světel až s 5 roční účinností', price: 2500 }
-          ]
-      },
-      {
-        id: 'additional_protection',
-        name: 'Další ochrany',
-        services: [
-          { id: 'plastic_tire_impregnation', name: 'Impregnace venkovních plastů a pneu', price: 300 },
-          { id: 'alu_ceramic_1y', name: 'Keramická ochrana ALU disků až s 1 roční účinností+leštění', price: 1000 }
-        ]
-      },
-      {
-        id: 'additional_exterior',
-        name: 'Další služby',
-        services: [
-          { id: 'windshield_wipers', name: 'Tekuté stěrače', price: 300 },
-          { id: 'engine_plastic_cleaning', name: 'Čištění a oživení plastů v motorové části vozu', price: 500 },
-          { id: 'headlight_renovation', name: 'Renovace předních světel + keramická ochrana až s 1 roční účinností', price: 1000 },
-          { id: 'alu_partial_renovation', name: 'Částečná renovace ALU disků / broušení a lakování', price: 500, hourly: true },
-          { id: 'scratch_repair', name: 'Oprava škrábanců a retuše po kamínkách / 1h', price: 350, hourly: true }
-        ]
-      }
-    ]
-  };
 
-  const packages = {
-    'Balíček - Důkladné mytí vozu': {
-      services: ['foam', 'wash', 'wheels', 'door_cleaning'],
-      price: 850 // Celková cena balíčku
-    },
-    'Balíček - Keramická ochrana interiéru': {
-      services: ['leather_ceramic', 'plastics_ceramic'],
-      price: 2000 // Celková cena balíčku
-    }
-  };
+  
 
   const handleVariantChange = (groupId, value) => {
     const newSelected = new Set(selectedServices);
@@ -725,42 +574,42 @@ const AutoDetailingCalculator = () => {
       </Card>
 
       <Card>
-        <CardContent className="pt-6">
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Velikost vozu</label>
-                <select
-                  value={carSize}
-                  onChange={(e) => setCarSize(e.target.value)}
-                  className="w-full p-2 border rounded bg-white"
-                >
-                  <option value="M">M - Střední vozy</option>
-                  <option value="XL">XL - SUV/Dodávky</option>
-                </select>
-              </div>
-            </div>
+  <CardContent className="pt-6">
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Velikost vozu</label>
+          <select
+            value={carSize}
+            onChange={(e) => setCarSize(e.target.value)}
+            className="w-full p-2 border rounded bg-white"
+          >
+            <option value="M">M - Střední vozy</option>
+            <option value="XL">XL - SUV/Dodávky</option>
+          </select>
+        </div>
+      </div>
 
-            <div className="space-y-6">
-              <details open>
-                <summary className="text-lg font-bold mb-4 cursor-pointer">
-                  Interiér
-                </summary>
-                <div className="space-y-6 ml-4">
-                  {Object.entries(serviceGroups.interior).map(([subcategory, group]) => renderServiceGroup('interior', group))}
-                </div>
-              </details>
-
-              <div>
-                <h3 className="text-lg font-bold mb-4">Exteriér</h3>
-                <div className="space-y-6">
-                  {serviceGroups.exterior.map(group => renderServiceGroup(group))}
-                </div>
-              </details>
-            </div>
+      <div className="space-y-6">
+        <details open>
+          <summary className="text-lg font-bold mb-4 cursor-pointer">
+            Interiér
+          </summary>
+          <div className="space-y-6 ml-4">
+            {Object.entries(serviceGroups.interior).map(([subcategory, group]) => renderServiceGroup('interior', group))}
           </div>
-        </CardContent>
-      </Card>
+        </details>
+
+        <div>
+          <h3 className="text-lg font-bold mb-4">Exteriér</h3>
+          <div className="space-y-6">
+            {serviceGroups.exterior.map(group => renderServiceGroup(group))}
+          </div>
+        </div> {/* Přidán uzavírací tag </div> */}
+      </div>
+    </div> {/* Přidán uzavírací tag </div> */}
+  </CardContent>
+</Card>
 
       <Card className="bg-gray-50">
     <CardContent className="pt-6">
