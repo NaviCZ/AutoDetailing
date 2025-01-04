@@ -1,12 +1,10 @@
-//AutoDetailingCalculator2025
+//AutoDetailingCalculator
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/Card';
 import { Button } from './ui/Button';
-import { Printer, Download, Calculator } from 'lucide-react';
-import jsPDF from "jspdf";
-import "jspdf-autotable";
-import CZFontPDF from "./CZFontPDF-normal.js"; // váš vlastní font
+import { Printer, Download, Calculator, List, Package } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useReactToPrint } from 'react-to-print';
 import { saveRecordToFirebase, getRecordsFromFirebase, deleteRecordFromFirebase, onAuthStateChangedListener } from './Firebase';
 import { auth } from './Firebase';
@@ -28,8 +26,8 @@ const PDFGenerator = ({
   finalPrice,
   additionalCharges,
   additionalNotes,
-  selectedPackages
-  
+  selectedPackages,
+  userEmail
 }) => {
   const generatePDF = () => {
     const generateServiceTable = (category) => {
@@ -49,37 +47,31 @@ const PDFGenerator = ({
                   ? `${service.name.replace('/ 1h', '')} (${hours} h)`
                   : service.name;
 
-              return `
-                <tr class="${category === 'interior' ? 'bg-blue-50' : 'bg-green-50'}">
-                  <td>${serviceName}</td>
-                  <td style="white-space: nowrap;">${Math.round(totalServicePrice).toLocaleString()} Kč</td>
-                </tr>
-              `;
-            })
-        )
-        const additionalChargesTable = additionalCharges
-      .filter(charge => charge.amount > 0)
-      .map((charge) => `
-        <tr>
-          <td>${charge.description}</td>
-          <td style="white-space: nowrap;">${Math.round(charge.amount).toLocaleString()} Kč</td>
-        </tr>
-      `).join('');
+                return `
+                  <tr class="${category === 'interior' ? 'bg-blue-50' : 'bg-green-50'}">
+                    <td>${serviceName}</td>
+                    <td style="white-space: nowrap;">${Math.round(totalServicePrice).toLocaleString()} Kč</td>
+                  </tr>
+                `;
+              })
+          );
 
-      return categoryServices ? `
-        <h2>${category === 'interior' ? 'Interiér' : 'Exteriér'}</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Služba</th>
-              <th>Cena</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${categoryServices}
-          </tbody>
-        </table>
-      ` : '';
+        return services.length > 0 ? `
+          <h2>${category === 'interior' ? 'Interiér' : 'Exteriér'}</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Služba</th>
+                <th>Cena</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${services.join('')}
+            </tbody>
+          </table>
+        ` : '';
+      }
+      return '';
     };
 
     const generatePackageTable = (packageName, services) => {
@@ -191,19 +183,15 @@ const PDFGenerator = ({
         <img src="./Logo.png" alt="Logo firmy" class="logo" />
         <h1>MV Auto Detailing - Faktura</h1>
 
-          <h2>Zákaznické údaje</h2>
-          <p><strong>Zákazník:</strong> ${customerName}</p>
-          <p><strong>Telefon:</strong> ${customerPhone}</p>
-          <p><strong>Poznámky k vozidlu:</strong> ${vehicleNotes}</p>
-          <p><strong>Datum:</strong> ${new Date().toLocaleDateString('cs-CZ')}</p>
+        <h2>Zákaznické údaje</h2>
+        <p><strong>Zákazník:</strong> ${customerName}</p>
+        <p><strong>Telefon:</strong> ${customerPhone}</p>
+        <p><strong>Poznámky k vozidlu:</strong> ${vehicleNotes}</p>
+        <p><strong>Datum:</strong> ${new Date().toLocaleDateString('cs-CZ')}</p>
 
-          ${!interiorServices && !exteriorServices && !packageTables ?
-            '<div class="section-note">Nebyly vybrány žádné služby</div>' :
-            `
-              
-              ${packageTables}
-            `
-          }
+        ${packageTables}
+        ${interiorServices}
+        ${exteriorServices}
 
         ${additionalCharges.some(charge => charge.amount > 0) ? `
           <h2>Dodatečné náklady</h2>
@@ -220,37 +208,31 @@ const PDFGenerator = ({
           </table>
         ` : ''}
 
-          <h2>Shrnutí</h2>
-          <table>
-            <tbody>
+        <h2>Shrnutí</h2>
+        <table>
+          <tbody>
+            <tr>
+              <td>Celková cena služeb</td>
+              <td>${totalPrice.toLocaleString()} Kč</td>
+            </tr>
+            ${discount > 0 ? `
               <tr>
-                <td>Celková cena služeb</td>
-                <td>${totalPrice.toLocaleString()} Kč</td>
+                <td>Sleva (${discount}%)</td>
+                <td style="white-space: nowrap;">-${Math.round(discountAmount).toLocaleString()} Kč</td>
               </tr>
-              ${discount > 0 ? `
-                <tr>
-                  <td>Sleva (${discount}%)</td>
-                  <td style="white-space: nowrap;">-${Math.round(discountAmount).toLocaleString()} Kč</td>
-                </tr>
-              ` : ''}
-              ${carSize === 'XL' ? `
-                <tr>
-                  <td>Příplatek za vůz XL (${CAR_SIZE_MARKUP * 100}%)</td>
-                  <td style="white-space: nowrap;">+${Math.round(totalPrice * CAR_SIZE_MARKUP).toLocaleString()} Kč</td>
-                </tr>
-              ` : ''}
-              ${additionalCharges.length > 0 ? `
-                <tr>
-                  <td>Dodatečné náklady</td>
-                  <td style="white-space: nowrap;">+${Math.round(additionalCharges.reduce((sum, charge) => sum + charge.amount, 0)).toLocaleString()} Kč</td>
-                </tr>
-              ` : ''}
-              <tr class="final-price">
-                <td>Konečná cena k zaplacení</td>
-                <td style="white-space: nowrap;">${Math.round(finalPrice).toLocaleString()} Kč</td>
+            ` : ''}
+            ${carSize === 'XL' ? `
+              <tr>
+                <td>Příplatek za vůz XL (${CAR_SIZE_MARKUP * 100}%)</td>
+                <td style="white-space: nowrap;">+${Math.round(totalPrice * CAR_SIZE_MARKUP).toLocaleString()} Kč</td>
               </tr>
-            </tbody>
-          </table>
+            ` : ''}
+            <tr>
+              <td class="final-price">Konečná cena k zaplacení</td>
+              <td class="final-price">${Math.round(finalPrice).toLocaleString()} Kč</td>
+            </tr>
+          </tbody>
+        </table>
 
         ${additionalNotes ? `
           <div class="highlight">
@@ -280,6 +262,145 @@ const PDFGenerator = ({
   );
 };
 
+const SavedRecordsModal = ({ onClose, onLoadRecord }) => {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadRecords = async () => {
+      const fetchedRecords = await getRecordsFromFirebase();
+      setRecords(fetchedRecords);
+      setLoading(false);
+    };
+    loadRecords();
+  }, []);
+
+  const deleteRecord = async (recordId) => {
+    const success = await deleteRecordFromFirebase(recordId);
+    if (success) {
+      setRecords(records.filter(record => record.id !== recordId));
+    } else {
+      alert('Při mazání záznamu došlo k chybě');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg">
+          <p>Načítání záznamů...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+      <div className="bg-white p-8 rounded-lg max-w-4xl max-w-full w-[600px] max-h-[90vh] overflow-y-auto">
+        <h2 className="text-2xl font-bold mb-6 flex items-center">
+          <List className="mr-2" /> Uložené záznamy
+        </h2>
+
+        {records.length === 0 ? (
+          <p className="text-center text-gray-500">Žádné uložené záznamy</p>
+        ) : (
+          <div className="space-y-4">
+            {records.map((record) => (
+              <div
+                key={record.id}
+                className="border rounded p-4 flex justify-between items-center hover:bg-gray-50"
+              >
+                <div>
+                  <p className="font-medium">{record.customerName}</p>
+                  <p className="text-sm text-gray-600">
+                    {new Date(record.timestamp).toLocaleString()}
+                  </p>
+                  <p className="text-blue-600 font-bold">
+                    {Math.round(record.finalPrice).toLocaleString()} Kč
+                  </p>
+                  <p className="text-gray-700">{record.vehicleNotes}</p>
+                  <p className="text-gray-700">Uložil: {record.userEmail}</p> {/* Přidáno uživatelské e-mail */}
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => onLoadRecord(record)}
+                    className="bg-blue-500 text-white px-3 py-1 rounded"
+                  >
+                    Načíst
+                  </button>
+                  <button
+                    onClick={() => deleteRecord(record.id)}
+                    className="bg-red-500 text-white px-3 py-1 rounded"
+                  >
+                    Smazat
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          onClick={onClose}
+          className="mt-6 w-full bg-gray-500 text-white py-2 rounded hover:bg-gray-600"
+        >
+          Zavřít
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const GitHubUpdates = ({ repoOwner, repoName }) => {
+  const [commits, setCommits] = useState([]);
+
+  useEffect(() => {
+    const fetchCommits = async () => {
+      try {
+        const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/commits?per_page=3`);
+        const data = await response.json();
+        setCommits(data);
+      } catch (error) {
+        console.error('Chyba při načítání commitů:', error);
+      }
+    };
+
+    fetchCommits();
+  }, [repoOwner, repoName]);
+
+  const splitCommitMessage = (message) => {
+    // Předpokládáme, že název souboru je první slovo a zbytek je komentář
+    const parts = message.split(' ');
+    const fileName = parts.shift(); // Odebere první prvek (název souboru)
+    const comment = parts.join(' '); // Zbytek je komentář
+    return { fileName, comment };
+  };
+
+  return (
+    <div className="space-y-4 p-4 bg-gray-100 rounded shadow">
+      <h2 className="text-sm font-bold">Poslední aktualizace</h2>
+      {commits.length > 0 ? (
+        <ul className="space-y-2">
+          {commits.map(commit => {
+            const { fileName, comment } = splitCommitMessage(commit.commit.message);
+            const date = new Date(commit.commit.author.date).toLocaleString();
+            const author = commit.commit.author.name;
+            return (
+              <li key={commit.sha} className="border p-2 rounded bg-white shadow-sm">
+                <p className="text-xs font-semibold">{fileName}</p>
+                <p className="text-xs text-gray-500 mt-1">{comment}</p>
+                <p className="text-xs text-gray-500 mt-1">{author} • {date}</p>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="text-sm">Žádné aktualizace k zobrazení.</p>
+      )}
+    </div>
+  );
+};
+
 const AutoDetailingCalculator = () => {
   const { serviceGroups, packages } = useServiceContext();
   const [carSize, setCarSize] = useState('M');
@@ -296,9 +417,9 @@ const AutoDetailingCalculator = () => {
   const [additionalCharges, setAdditionalCharges] = useState([{ description: '', amount: 0 }]);
   const [additionalNotes, setAdditionalNotes] = useState('');
   const [selectedPackages, setSelectedPackages] = useState({});
-
-
-  
+  const [showPriceList, setShowPriceList] = useState(false);
+  const [userEmail, setUserEmail] = useState(null);
+  const [showSavedRecords, setShowSavedRecords] = useState(false);
 
   const handleVariantChange = (groupId, value) => {
     const newSelected = new Set(selectedServices);
@@ -422,7 +543,20 @@ const AutoDetailingCalculator = () => {
     updatePrices();
   }, [selectedServices, serviceVariants, discount, carSize, serviceHours, additionalCharges, selectedPackages]);
 
-  const renderServiceGroup = (group) => {
+  useEffect(() => {
+    const unsubscribe = onAuthStateChangedListener((currentUser) => {
+      if (currentUser) {
+        setUserEmail(currentUser.email);
+      } else {
+        setUserEmail(null);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const renderServiceGroup = (category, group) => {
+    if (!group) return null; // Add null check for group
     if (group.type === 'select') {
       return (
         <div key={group.id} className="space-y-2">
@@ -522,16 +656,195 @@ const AutoDetailingCalculator = () => {
     setAdditionalCharges([...additionalCharges, { description: '', amount: 0 }]);
   };
 
+  const saveRecord = async () => {
+    const recordToSave = {
+      customerName,
+      customerPhone,
+      vehicleNotes,
+      selectedServices: Array.from(selectedServices),
+      serviceVariants,
+      carSize,
+      totalPrice,
+      discount,
+      finalPrice,
+      additionalCharges,
+      additionalNotes,
+      selectedPackages,
+      timestamp: new Date().toISOString(),
+      userEmail: userEmail // Použijeme hodnotu ze stavu userEmail
+    };
+
+    const success = await saveRecordToFirebase(recordToSave);
+    if (success) {
+      alert('Záznam byl úspěšně uložen');
+    } else {
+      alert('Při ukládání záznamu došlo k chybě');
+    }
+  };
+
+  const loadRecord = (record) => {
+    console.log('Loading Record:', record);
+    setCustomerName(record.customerName);
+    setCustomerPhone(record.customerPhone);
+    setVehicleNotes(record.vehicleNotes);
+    setSelectedServices(new Set(record.selectedServices));
+    setServiceVariants(record.serviceVariants || {}); // Ensure serviceVariants is an object
+    setCarSize(record.carSize);
+    setDiscount(record.discount);
+    setAdditionalCharges(record.additionalCharges);
+    setAdditionalNotes(record.additionalNotes);
+    setSelectedPackages(record.selectedPackages || {}); // Ensure selectedPackages is an object
+    setUserEmail(record.userEmail); // Nastavení uživatelského e-mailu
+    setShowSavedRecords(false);
+  };
+
+  const generatePriceListPDF = () => {
+    const pdfContent = `
+      <!DOCTYPE html>
+      <html lang="cs">
+      <head>
+        <title>Ceník služeb MV Auto Detailing 2024</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+          }
+          .logo {
+            max-width: 200px;
+            display: block;
+            margin: 0 auto 20px;
+          }
+          h1, h2 {
+            text-align: center;
+            color: #333;
+            border-bottom: 2px solid #4a90e2;
+            padding-bottom: 10px;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+          }
+          th, td {
+            border: 1px solid #e0e0e0;
+            padding: 8px;
+            text-align: left;
+          }
+          th {
+            background-color: #f0f0e0;
+          }
+          .year {
+            font-weight: bold;
+            font-size: 1.2em;
+          }
+        </style>
+      </head>
+      <body>
+        <img src="./Logo.png" alt="Logo firmy" class="logo" />
+        <h1>Ceník služeb MV Auto Detailing - <span class="year">2024</span></h1>
+
+        <h2>Balíčky služeb</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Balíček</th>
+              <th>Cena</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${Object.entries(packages).map(([packageName, packageDetails]) => {
+              const packagePrice = packageDetails.services.reduce((sum, serviceId) => {
+                const service = [...Object.values(serviceGroups.interior).flatMap(group => group.services || group.options || []),
+                                ...Object.values(serviceGroups.exterior).flatMap(group => group.services || group.options || [])]
+                               .find(service => service.id === serviceId);
+                return sum + (service ? service.price : 0);
+              }, 0);
+              return `
+                <tr>
+                  <td>${packageName}</td>
+                  <td>${packagePrice.toLocaleString()} Kč</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+
+        <h2>Interiér</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Služba</th>
+              <th>Cena</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${Object.values(serviceGroups.interior)
+              .flatMap(group => group.services || group.options || [])
+              .map(service => `
+                <tr>
+                  <td>${service.name}</td>
+                  <td>${service.price.toLocaleString()} Kč${service.hourly ? ' / hod' : ''}</td>
+                </tr>
+              `).join('')}
+          </tbody>
+        </table>
+
+        <h2>Exteriér</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Služba</th>
+              <th>Cena</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${Object.values(serviceGroups.exterior)
+              .flatMap(group => group.services || group.options || [])
+              .map(service => `
+                <tr>
+                  <td>${service.name}</td>
+                  <td>${service.price.toLocaleString()} Kč${service.hourly ? ' / hod' : ''}</td>
+                </tr>
+              `).join('')}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '', 'height=500, width=800');
+    printWindow.document.write(pdfContent);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
   return (
-    <div className="max-w-4xl mx-auto p-4 space-y-6">
-      <div className="flex items-center justify-between bg-white p-6 rounded-lg shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="bg-blue-600 text-white p-4 rounded-full">
-            <Calculator size={32} />
+    <>
+      <div className="max-w-4xl mx-auto p-4 space-y-6">
+        <div className="flex justify-between space-x-2 flex-wrap">
+          <div className="flex items-center gap-4 w-full sm:w-auto mb-4 sm:mb-0">
+            <div className="bg-blue-600 text-white p-4 rounded-full">
+              <Calculator size={32} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">MV Auto Detailing</h1>
+              <p className="text-gray-500">Kalkulace služeb</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">MV Auto Detailing</h1>
-            <p className="text-gray-500">Kalkulace služeb</p>
+
+          <div className="flex space-x-2 w-full sm:w-auto justify-end">
+            
+            <Button
+              variant="outline"
+              onClick={() => setShowSavedRecords(true)}
+              className="h-12 px-4 mb-2 sm:mb-0 w-full sm:w-auto flex-grow flex items-center justify-center"
+            >
+              <List className="mr-2" /> Uložené záznamy
+            </Button>
+
           </div>
         </div>
       </div>
@@ -574,68 +887,82 @@ const AutoDetailingCalculator = () => {
       </Card>
 
       <Card>
-  <CardContent className="pt-6">
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Velikost vozu</label>
-          <select
-            value={carSize}
-            onChange={(e) => setCarSize(e.target.value)}
-            className="w-full p-2 border rounded bg-white"
-          >
-            <option value="M">M - Střední vozy</option>
-            <option value="XL">XL - SUV/Dodávky</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="space-y-6">
-        <details open>
-          <summary className="text-lg font-bold mb-4 cursor-pointer">
-            Interiér
-          </summary>
-          <div className="space-y-6 ml-4">
-            {Object.entries(serviceGroups.interior).map(([subcategory, group]) => renderServiceGroup('interior', group))}
-          </div>
-        </details>
-
-        <div>
-          <h3 className="text-lg font-bold mb-4">Exteriér</h3>
+        <CardContent className="pt-6">
           <div className="space-y-6">
-            {serviceGroups.exterior.map(group => renderServiceGroup(group))}
-          </div>
-        </div> {/* Přidán uzavírací tag </div> */}
-      </div>
-    </div> {/* Přidán uzavírací tag </div> */}
-  </CardContent>
-</Card>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Velikost vozu</label>
+                <select
+                  value={carSize}
+                  onChange={(e) => setCarSize(e.target.value)}
+                  className="w-full p-2 border rounded bg-white"
+                >
+                  <option value="M">M - Střední vozy</option>
+                  <option value="XL">XL - SUV/Dodávky</option>
+                </select>
+              </div>
+            </div>
 
-      <Card className="bg-gray-50">
-    <CardContent className="pt-6">
-      <div className="space-y-4">
-        <h3 className="text-lg font-bold mb-4">Balíčky služeb</h3>
-        {Object.entries(packages).map(([packageName, packageDetails]) => (
-          <div 
-            key={packageName} 
-            className="flex items-center space-x-4 cursor-pointer hover:bg-gray-100 p-2 rounded-lg"
-            onClick={() => togglePackage(packageName)}
-          >
-            <input
-              type="checkbox"
-              checked={!!selectedPackages[packageName]}
-              onChange={() => togglePackage(packageName)}
-              className="h-5 w-5 rounded border-gray-300 pointer-events-none"
-            />
-            <div className="flex justify-between w-full">
-              <span className="font-medium">{packageName}</span>
-              <span className="text-blue-600 font-bold">{packageDetails.price.toLocaleString()} Kč</span>
+            <div className="space-y-6">
+              <details open>
+                <summary className="text-lg font-bold mb-4 cursor-pointer">
+                  Interiér
+                </summary>
+                <div className="space-y-6 ml-4">
+                  {Object.entries(serviceGroups.interior).map(([subcategory, group]) => renderServiceGroup('interior', group))}
+                </div>
+              </details>
+
+              <details open>
+                <summary className="text-lg font-bold mb-4 cursor-pointer">
+                  Exteriér
+                </summary>
+                <div className="space-y-6 ml-4">
+                  {Object.entries(serviceGroups.exterior || {}).map(([subcategory, group]) =>
+                    renderServiceGroup('exterior', group)
+                  )}
+                </div>
+              </details>
             </div>
           </div>
-        ))}
-      </div>
-    </CardContent>
-  </Card>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-gray-50">
+        <CardContent className="pt-6">
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold mb-4">Balíčky služeb</h3>
+            {Object.entries(packages).map(([packageName, packageDetails], index) => {
+              const packagePrice = packageDetails.services.reduce((sum, serviceId) => {
+                const service = [...Object.values(serviceGroups.interior).flatMap(group => group.services || group.options || []),
+                                ...Object.values(serviceGroups.exterior).flatMap(group => group.services || group.options || [])]
+                               .find(service => service.id === serviceId);
+                return sum + (service ? service.price : 0);
+              }, 0);
+
+              return (
+                <div
+                  key={`${packageName}-${index}`}
+                  className="flex items-center space-x-4 cursor-pointer hover:bg-gray-100 p-2 rounded-lg"
+                  onClick={() => togglePackage(packageName)}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!selectedPackages[packageName]}
+                    onChange={() => togglePackage(packageName)}
+                    className="h-5 w-5 rounded border-gray-300 pointer-events-none"
+                  />
+                  <div className="flex justify-between w-full items-center">
+                    <span className="font-medium whitespace-nowrap">{packageName}</span>
+                    <span className="text-blue-600 font-bold whitespace-nowrap ml-4">{packagePrice.toLocaleString()} Kč</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+        </CardContent>
+      </Card>
 
       <Card className="bg-gray-50">
         <CardContent className="pt-6">
@@ -725,23 +1052,42 @@ const AutoDetailingCalculator = () => {
         </CardContent>
       </Card>
 
-      <PDFGenerator
-        customerName={customerName}
-        customerPhone={customerPhone}
-        vehicleNotes={vehicleNotes}
-        serviceGroups={serviceGroups}
-        selectedServices={selectedServices}
-        serviceHours={serviceHours}
-        totalPrice={totalPrice}
-        discount={discount}
-        discountAmount={discountAmount}
-        carSize={carSize}
-        finalPrice={finalPrice}
-        additionalCharges={additionalCharges}
-        additionalNotes={additionalNotes}
-        selectedPackages={selectedPackages}
-      />
-    </div>
+      <div className="flex justify-between space-x-2 mt-4 mb-4 mx-4">
+        <button
+          onClick={saveRecord}
+          className="bg-blue-500 text-white px-4 py-2 rounded flex-grow"
+        >
+          Uložit záznam
+        </button>
+        <PDFGenerator
+          customerName={customerName}
+          customerPhone={customerPhone}
+          vehicleNotes={vehicleNotes}
+          serviceGroups={serviceGroups}
+          selectedServices={selectedServices}
+          serviceHours={serviceHours}
+          totalPrice={totalPrice}
+          discount={discount}
+          discountAmount={discountAmount}
+          carSize={carSize}
+          finalPrice={finalPrice}
+          additionalCharges={additionalCharges}
+          additionalNotes={additionalNotes}
+          selectedPackages={selectedPackages}
+          userEmail={userEmail} // Přidáno uživatelské e-mail
+        />
+      </div>
+
+      <GitHubUpdates repoOwner="NaviCZ" repoName="AutoDetailing" />
+
+      {showSavedRecords && (
+        <SavedRecordsModal
+          records={JSON.parse(localStorage.getItem('autoDetailingRecords') || '[]')}
+          onClose={() => setShowSavedRecords(false)}
+          onLoadRecord={loadRecord}
+        />
+      )}
+    </>
   );
 };
 
