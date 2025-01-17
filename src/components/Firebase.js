@@ -6,6 +6,7 @@ import { getDatabase, ref, push, get, remove, set } from 'firebase/database';
 import { serverTimestamp } from "firebase/database";
 
 
+
 const firebaseConfig = {
   apiKey: "AIzaSyApr3xhd5_NKm6MhxWk_t6ILUNnw1-ekcM",
   authDomain: "autodetailing-9f2fa.firebaseapp.com",
@@ -50,6 +51,7 @@ export const signOutUser = async () => {
 // Funkce pro ukládání záznamu do Firebase
 export const saveRecordToFirebase = async (record) => {
   try {
+    console.log('Saving record:', record); // Přidejte tento řádek
     const recordsRef = ref(database, 'records');
     await push(recordsRef, record);
     return true;
@@ -180,6 +182,16 @@ export const deleteProductFromFirebase = async (productId) => {
   } catch (error) {
     console.error('Chyba při mazání produktu:', error);
     return false;
+  }
+};
+
+export const updateCategory = async (category) => {
+  try {
+    const categoryRef = doc(db, 'categories', category.id); // Odkaz na kategorii v kolekci Firestore
+    await setDoc(categoryRef, { name: category.name }, { merge: true }); // Aktualizace názvu kategorie
+    console.log('Kategorie byla úspěšně aktualizována.');
+  } catch (error) {
+    console.error('Chyba při aktualizaci kategorie:', error);
   }
 };
 

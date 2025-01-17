@@ -80,130 +80,240 @@ const App = () => {
 
 
 const Home = ({ user }) => {
-  const { serviceGroups, packages } = useServiceContext(); // Změna zde - použijeme pouze serviceGroups a packages
+  const { serviceGroups, packages } = useServiceContext();
 
   const generatePriceListPDF = () => {
+    // Kontrola, zda máme potřebná data
+    if (!serviceGroups?.interior?.items || !serviceGroups?.exterior?.items || !packages) {
+      console.error('Chybí potřebná data pro generování ceníku');
+      return;
+    }
+  
+    const findServiceById = (serviceId) => {
+      const interiorService = Object.values(serviceGroups.interior.items || {})
+        .find(service => service.id === serviceId);
+      const exteriorService = Object.values(serviceGroups.exterior.items || {})
+        .find(service => service.id === serviceId);
+      return interiorService || exteriorService;
+    };
+  
+    // Generování řádků pro balíčky
+    const packageRows = Object.entries(packages || {}).map(([packageName, packageDetails]) => {
+      const packagePrice = (packageDetails.services || []).reduce((sum, serviceId) => {
+        const service = findServiceById(serviceId);
+        return sum + (service?.price || 0);
+      }, 0);
+      
+      return `
+        <tr>
+          <td>${packageName}</td>
+          <td class="price-cell">${packagePrice.toLocaleString()} Kč</td>
+        </tr>
+      `;
+    }).join('');
+  
+    // Generování řádků pro interiérové služby
+    const interiorRows = Object.values(serviceGroups.interior.items || {})
+      .map(service => `
+        <tr class="bg-blue-50">
+          <td>${service.name}</td>
+          <td class="price-cell">${service.price?.toLocaleString()} Kč${service.hourly ? ' / hod' : ''}</td>
+        </tr>
+      `).join('');
+  
+    // Generování řádků pro exteriérové služby
+    const exteriorRows = Object.values(serviceGroups.exterior.items || {})
+      .map(service => `
+        <tr class="bg-green-50">
+          <td>${service.name}</td>
+          <td class="price-cell">${service.price?.toLocaleString()} Kč${service.hourly ? ' / hod' : ''}</td>
+        </tr>
+      `).join('');
+  
     const pdfContent = `
-      <!DOCTYPE html>
-      <html lang="cs">
-      <head>
-        <title>Ceník služeb MV Auto Detailing 2024</title>
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            line-height: 1.6;
-          }
-          .logo {
-            max-width: 200px;
-            display: block;
-            margin: 0 auto 20px;
-          }
-          h1, h2 {
-            text-align: center;
-            color: #333;
-            border-bottom: 2px solid #4a90e2;
-            padding-bottom: 10px;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-          }
-          th, td {
-            border: 1px solid #e0e0e0;
-            padding: 8px;
-            text-align: left;
-          }
-          th {
-            background-color: #f0f0e0;
-          }
-          .year {
-            font-weight: bold;
-            font-size: 1.2em;
-          }
-        </style>
-      </head>
-      <body>
-        <img src="./Logo.png" alt="Logo firmy" class="logo" />
-        <h1>Ceník služeb MV Auto Detailing - <span class="year">2024</span></h1>
+          <!DOCTYPE html>
+    <html lang="cs">
+    <head>
+      <title>Ceník služeb MV Auto Detailing 2024</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 20px;
+          line-height: 1.6;
+        }
+        .logo {
+          max-width: 200px;
+          display: block;
+          margin: 0 auto 20px;
+        }
+        h1, h2 {
+          text-align: center;
+          color: #333;
+          border-bottom: 2px solid #4a90e2;
+          padding-bottom: 10px;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 20px;
+        }
+        th, td {
+          border: 1px solid #e0e0e0;
+          padding: 8px;
+          text-align: left;
+        }
+        th {
+          background-color: #f0f0e0;
+        }
+        .year {
+          font-weight: bold;
+          font-size: 1.2em;
+        }
+        .variant {
+          padding-left: 20px;
+          color: #666;
+        }
 
-        <h2>Balíčky služeb</h2>
-        <table>
-          <thead>
+         .price-column {
+    width: 70px;
+    text-align: right;
+    white-space: nowrap;
+  }
+  th:last-child, td:last-child {
+    width: 70px;
+    text-align: left;
+    white-space: nowrap;
+  }
+  td.variant {
+    padding-left: 20px;
+  }
+
+        
+      </style>
+    </head>
+    <body>
+      <img src="./Logo.png" alt="Logo firmy" class="logo" />
+      <h1>Ceník služeb MV Auto Detailing - <span class="year">2024</span></h1>
+
+      <h2>Balíčky služeb</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Balíček</th>
+            <th>Cena</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${Object.entries(packages).map(([packageName, packageDetails]) => `
             <tr>
-              <th>Balíček</th>
-              <th>Cena</th>
+              <td>${packageName}</td>
+              <td>${packageDetails.price?.toLocaleString()} Kč</td>
             </tr>
-          </thead>
-          <tbody>
-            ${Object.entries(packages).map(([packageName, packageDetails]) => {
-              const packagePrice = packageDetails.services.reduce((sum, serviceId) => {
-                const service = [...Object.values(serviceGroups.interior).flatMap(group => group.services || group.options || []),
-                                ...Object.values(serviceGroups.exterior).flatMap(group => group.services || group.options || [])]
-                               .find(service => service.id === serviceId);
-                return sum + (service ? service.price : 0);
-              }, 0);
+          `).join('')}
+        </tbody>
+      </table>
+
+      <h2>Interiér</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Služba</th>
+            <th>Cena</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${Object.values(serviceGroups?.interior?.items || []).map(service => {
+            if (service.hasVariants) {
+              // Pro služby s variantami
               return `
                 <tr>
-                  <td>${packageName}</td>
-                  <td>${packagePrice.toLocaleString()} Kč</td>
+                  <td colspan="2"><strong>${service.name}</strong></td>
+                </tr>
+                ${service.variants.map(variant => `
+                  <tr>
+        <td class="variant" style="width: 80%">${variant.name}</td>
+        <td style="white-space: nowrap; text-align: right">${variant.price.toLocaleString()} Kč</td>
+      </tr>
+                `).join('')}
+              `;
+            } else {
+              // Pro běžné služby
+              return `
+                <tr>
+                  <td>${service.name}</td>
+                  <td>${service.price.toLocaleString()} Kč${service.hourly ? ' / hod' : ''}</td>
                 </tr>
               `;
-            }).join('')}
-          </tbody>
-        </table>
+            }
+          }).join('')}
+        </tbody>
+      </table>
 
-        <h2>Interiér</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Služba</th>
-              <th>Cena</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${Object.values(serviceGroups.interior)
-              .flatMap(group => group.services || group.options || [])
-              .map(service => `
+      <h2>Exteriér</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Služba</th>
+            <th>Cena</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${Object.values(serviceGroups?.exterior?.items || []).map(service => {
+            if (service.hasVariants) {
+              // Pro služby s variantami
+              return `
+                <tr>
+                  <td colspan="2"><strong>${service.name}</strong></td>
+                </tr>
+                ${service.variants.map(variant => `
+                  <tr>
+                    <td class="variant">- ${variant.name}</td>
+                    <td>${variant.price.toLocaleString()} Kč</td>
+                  </tr>
+                `).join('')}
+              `;
+            } else {
+              // Pro běžné služby
+              return `
                 <tr>
                   <td>${service.name}</td>
                   <td>${service.price.toLocaleString()} Kč${service.hourly ? ' / hod' : ''}</td>
                 </tr>
-              `).join('')}
-          </tbody>
-        </table>
+              `;
+            }
+          }).join('')}
+        </tbody>
+      </table>
+        <div style="margin-top: 30px; border-top: 1px solid #e0e0e0; padding-top: 20px;">
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="color: #2563eb; margin: 0 0 10px 0;">Důležité informace:</h3>
+          <p style="margin: 0; color: #374151;">
+            <strong>Příplatek za větší vozy:</strong> Pro SUV, dodávky a větší vozidla se účtuje příplatek 30% k základní ceně služeb.
+          </p>
+        </div>
 
-        <h2>Exteriér</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Služba</th>
-              <th>Cena</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${Object.values(serviceGroups.exterior)
-              .flatMap(group => group.services || group.options || [])
-              .map(service => `
-                <tr>
-                  <td>${service.name}</td>
-                  <td>${service.price.toLocaleString()} Kč${service.hourly ? ' / hod' : ''}</td>
-                </tr>
-              `).join('')}
-          </tbody>
-        </table>
-      </body>
-      </html>
-    `;
+        <div style="text-align: center; margin-top: 30px; color: #4b5563;">
+          <p style="margin-bottom: 5px;">
+            Děkujeme za Vaši důvěru. Těšíme se na spolupráci!
+          </p>
+          <p style="font-size: 0.9em;">
+           Tým MV Auto Detailing<br>
+            Tel: +420 731 516 268<br>
+            Email: jiramares@seznam.cz
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
 
-    const printWindow = window.open('', '', 'height=500, width=800');
-    printWindow.document.write(pdfContent);
-    printWindow.document.close();
-    printWindow.print();
-  };
+  const printWindow = window.open('', '', 'height=500, width=800');
+  printWindow.document.write(pdfContent);
+  printWindow.document.close();
+  printWindow.print();
+};
 
   return (
     <div className="container mx-auto p-8">

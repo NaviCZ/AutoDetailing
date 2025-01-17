@@ -13,3 +13,4 @@ export const Button = ({ children, variant = 'default', onClick, className = '' 
     </button>
   );
 };
+export default Button;

@@ -9,7 +9,12 @@ const SavedRecordsModal = ({ onClose, onLoadRecord }) => {
   useEffect(() => {
     const loadRecords = async () => {
       const fetchedRecords = await getRecordsFromFirebase();
-      setRecords(fetchedRecords);
+      // Normalize the selectedPackages data structure
+      const normalizedRecords = fetchedRecords.map(record => ({
+        ...record,
+        selectedPackages: record.selectedPackages || {},
+      }));
+      setRecords(normalizedRecords);
       setLoading(false);
     };
     loadRecords();
@@ -24,6 +29,16 @@ const SavedRecordsModal = ({ onClose, onLoadRecord }) => {
     }
   };
 
+  const handleLoadRecord = (record) => {
+    // Ensure the selectedPackages structure is correct
+    const normalizedRecord = {
+      ...record,
+      selectedPackages: record.selectedPackages || {},
+      selectedServices: new Set(record.selectedServices || [])
+    };
+    onLoadRecord(normalizedRecord);
+  };
+
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
@@ -36,7 +51,7 @@ const SavedRecordsModal = ({ onClose, onLoadRecord }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-lg max-w-4xl max-w-full w-[600px] max-h-[90vh] overflow-y-auto">
+      <div className="bg-white p-8 rounded-lg max-w-4xl w-[600px] max-h-[90vh] overflow-y-auto">
         <h2 className="text-2xl font-bold mb-6 flex items-center">
           <List className="mr-2" /> Uložené záznamy
         </h2>
@@ -58,12 +73,19 @@ const SavedRecordsModal = ({ onClose, onLoadRecord }) => {
                   <p className="text-blue-600 font-bold">
                     {Math.round(record.finalPrice).toLocaleString()} Kč
                   </p>
-                  <p className="text-gray-700">{record.vehicleNotes}</p>
-                  <p className="text-gray-700">Uložil: {record.userId ? record.userId : 'Nepřihlášený uživatel'}</p>
+                  {record.vehicleNotes && (
+                    <p className="text-gray-700">{record.vehicleNotes}</p>
+                  )}
+                  {record.selectedPackages && Object.keys(record.selectedPackages).length > 0 && (
+                    <p className="text-gray-600 text-sm">
+                      Vybrané balíčky: {Object.keys(record.selectedPackages).join(', ')}
+                    </p>
+                  )}
+                  <p className="text-gray-700">Uložil: {record.userEmail}</p>
                 </div>
                 <div className="flex space-x-2">
                   <button
-                    onClick={() => onLoadRecord(record)}
+                    onClick={() => handleLoadRecord(record)}
                     className="bg-blue-500 text-white px-3 py-1 rounded"
                   >
                     Načíst
