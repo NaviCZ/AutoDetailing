@@ -43,6 +43,7 @@ const AutoDetailingCalculator = () => {
   const [editingService, setEditingService] = useState(null);
   const [editingPackage, setEditingPackage] = useState(null);
   const [expandedPackage, setExpandedPackage] = useState(null);
+  const [activePackageId, setActivePackageId] = useState(null);
 
   const interiorGroups = serviceGroups?.interior || {};
   const exteriorGroups = serviceGroups?.exterior || {};
@@ -578,64 +579,55 @@ const AutoDetailingCalculator = () => {
   <div className="space-y-4">
   <h3 className="text-lg font-bold mb-4">Balíčky služeb</h3>
   {packages && Object.entries(packages).map(([packageName, packageDetails], index) => (
-    <div key={`${packageName}-${index}`} className="border rounded-lg">
-      <div
-        className="flex items-center justify-between hover:bg-gray-100 p-2 cursor-pointer group"
-        onClick={() => togglePackage(packageName)} // Přidáno pro klikání na celý řádek
-      >
-        <div className="flex items-center flex-1">
-          <input
-            type="checkbox"
-            checked={!!selectedPackages[packageName]}
-            onChange={(e) => {
-              e.stopPropagation(); // Zabrání dvojímu spuštění
-              togglePackage(packageName);
-            }}
-            className="h-5 w-5 rounded border-gray-300"
-          />
-          <span className="ml-2 font-medium">{packageName}</span>
-        </div>
+    <div 
+      key={`${packageName}-${index}`} 
+      className={`border rounded-lg ${selectedPackages[packageName] ? 'bg-blue-50' : ''}`}
+    >
+      <div className="flex flex-col">
+        <div
+          className={`flex items-center justify-between p-2 cursor-pointer hover:bg-gray-50`}
+          onClick={() => {
+            togglePackage(packageName);
+            setActivePackageId(packageName);
+          }}
+        >
+          <div className="flex items-center flex-1">
+            <input
+              type="checkbox"
+              checked={!!selectedPackages[packageName]}
+              onChange={(e) => {
+                e.stopPropagation();
+                togglePackage(packageName);
+                setActivePackageId(packageName);
+              }}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            <span className="ml-2">{packageName}</span>
+          </div>
 
-        <div className="flex items-center">
-          <span className="text-blue-600 font-bold mr-4">
+          <span className="font-medium whitespace-nowrap min-w-[80px] text-right">
             {packageDetails.price?.toLocaleString()} Kč
           </span>
-          
-          <button
-            onClick={(e) => {
-              e.stopPropagation(); // Zabrání togglePackage
-              setExpandedPackage(expandedPackage === packageName ? null : packageName);
-            }}
-            className="p-1 hover:bg-gray-200 rounded mr-2"
-            title="Zobrazit obsah balíčku"
-          >
-            <HelpCircle size={16} className="text-gray-600" />
-          </button>
+        </div>
 
-          <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Druhý řádek s editační ikonou */}
+        {selectedPackages[packageName] && activePackageId === packageName && (
+          <div className="flex justify-end p-2 pt-0">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 handleEditPackage(packageName, packageDetails);
               }}
-              className="p-1 hover:bg-gray-200 rounded"
+              className="p-2 hover:bg-white rounded border"
             >
               <Edit2 size={16} className="text-gray-600" />
             </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (window.confirm(`Opravdu chcete smazat balíček "${packageName}"?`)) {
-                  handleDeletePackage(packageDetails.id);
-                }
-              }}
-              className="p-1 hover:bg-gray-200 rounded"
-            >
-              <Trash2 size={16} className="text-red-600" />
-            </button>
           </div>
-        </div>
-      </div>
+        )}
+    </div>
+
+
+
 
       {/* Rozbalený detail balíčku */}
       {expandedPackage === packageName && (

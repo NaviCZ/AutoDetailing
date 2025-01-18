@@ -80,13 +80,13 @@ const EditVariantsModal = ({ isOpen, onClose, service, onSave }) => {
         </div>
 
         <div className="flex justify-end space-x-2 pt-4">
-  <Button variant="outline" onClick={onClose} type="button">
-    Zrušit
-  </Button>
-  <Button type="submit">
-    Uložit
-  </Button>
-</div>
+          <Button variant="outline" onClick={onClose} type="button">
+            Zrušit
+          </Button>
+          <Button type="submit">
+            Uložit
+          </Button>
+        </div>
       </form>
     </Modal>
   );

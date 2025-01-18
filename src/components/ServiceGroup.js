@@ -24,6 +24,7 @@ const ServiceGroup = ({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingSubcategory, setEditingSubcategory] = useState(null);
   const [expandedSubcategories, setExpandedSubcategories] = useState(new Set());
+  const [activeItemId, setActiveItemId] = useState(null);
 
   if (!group || !group.items) return null;
 
@@ -46,58 +47,45 @@ const ServiceGroup = ({
         </div>
 
         <div className="space-y-2">
-          {Object.entries(groupedBySubcategory).map(([subcategory, services]) => (
-            <div key={subcategory} className="border rounded-lg overflow-hidden">
-              <div className="relative">
-                <div 
-                  className="flex items-center justify-between p-3 hover:bg-gray-50 cursor-pointer group"
-                  onClick={() => {
-                    setExpandedSubcategories(prev => {
-                      const newSet = new Set(prev);
-                      if (newSet.has(subcategory)) {
-                        newSet.delete(subcategory);
-                      } else {
-                        newSet.add(subcategory);
-                      }
-                      return newSet;
-                    });
-                  }}
-                >
-                  <div className="flex items-center flex-1">
-                    {expandedSubcategories.has(subcategory) ? (
-                      <ChevronDown className="w-5 h-5 text-gray-500" />
-                    ) : (
-                      <ChevronRight className="w-5 h-5 text-gray-500" />
-                    )}
-                    <span className="ml-2 font-medium">{subcategory}</span>
-                  </div>
-                  
-                  <div className="absolute right-2 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingSubcategory(subcategory);
-                      }}
-                      className="p-1 hover:bg-gray-100 rounded"
-                    >
-                      <Edit2 size={16} className="text-gray-600" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (window.confirm(`Opravdu chcete smazat podkategorii "${subcategory}" a všechny její služby?`)) {
-                          onDeleteSubcategory(category, subcategory);
-                        }
-                      }}
-                      className="p-1 hover:bg-gray-100 rounded"
-                    >
-                      <Trash2 size={16} className="text-red-600" />
-                    </button>
-                  </div>
-                </div>
-              </div>
+        {Object.entries(groupedBySubcategory).map(([subcategory, services]) => (
+  <div key={subcategory} className="border rounded-lg overflow-hidden">
+    <div className="relative">
+      <div 
+        className="flex items-center justify-between p-3 hover:bg-gray-50 cursor-pointer"
+        onClick={() => {
+          setExpandedSubcategories(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(subcategory)) {
+              newSet.delete(subcategory);
+            } else {
+              newSet.add(subcategory);
+            }
+            return newSet;
+          });
+        }}
+      >
+        <div className="flex items-center flex-1">
+          {expandedSubcategories.has(subcategory) ? (
+            <ChevronDown className="w-5 h-5 text-gray-500" />
+          ) : (
+            <ChevronRight className="w-5 h-5 text-gray-500" />
+          )}
+          <span className="ml-2 font-medium">{subcategory}</span>
+        </div>
 
-              {expandedSubcategories.has(subcategory) && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setEditingSubcategory(subcategory);
+          }}
+          className="p-2 hover:bg-white rounded border opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <Edit2 size={16} className="text-gray-600" />
+        </button>
+      </div>
+    </div>
+
+    {expandedSubcategories.has(subcategory) && (
                 <div className="p-3 space-y-2 bg-white border-t">
                   {services.map((service) => (
                     <div key={service.id}>
@@ -106,16 +94,21 @@ const ServiceGroup = ({
                           service={service}
                           selectedVariantId={selectedVariants[service.id]}
                           onSelect={(variantId) => onVariantSelect(service.id, variantId)}
+                          isActive={service.id === activeItemId}
+                          onEdit={onEditService}
                         />
                       ) : (
                         <ServiceItem
                           service={service}
                           isSelected={selectedServices.has(service.id)}
-                          onToggle={onToggleService}
+                          onToggle={(id) => {
+                            onToggleService(id);
+                            setActiveItemId(id); // Nastaví tuto položku jako aktivní
+                          }}
                           onEdit={onEditService}
-                          onDelete={() => onDeleteService(category, service.id)}
                           serviceHours={serviceHours}
                           onHoursChange={onHoursChange}
+                          isActive={service.id === activeItemId}
                         />
                       )}
                     </div>

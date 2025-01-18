@@ -1,13 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from './ui/Modal';
 import Button from './ui/Button';
 import { Clock } from 'lucide-react';
+import { useServiceContext } from './ServiceContext';
 
 const EditServiceModal = ({ isOpen, service, onClose, onSave }) => {
+  const { serviceGroups } = useServiceContext();
   const [editedService, setEditedService] = useState({
     ...service,
-    hourly: service.hourly || false,
+    hourly: service.hourly || false
   });
+  const [subcategories, setSubcategories] = useState([]);
+
+  useEffect(() => {
+    // Získání všech podkategorií pro danou hlavní kategorii
+    if (service.mainCategory && serviceGroups[service.mainCategory]?.items) {
+      const uniqueSubcategories = [
+        ...new Set(
+          serviceGroups[service.mainCategory].items
+            .map(item => item.subcategory)
+            .filter(Boolean)
+        )
+      ];
+      setSubcategories(uniqueSubcategories);
+    }
+  }, [service.mainCategory, serviceGroups]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -49,6 +66,23 @@ const EditServiceModal = ({ isOpen, service, onClose, onSave }) => {
           </div>
 
           <div className="form-section">
+            <label className="block text-sm font-medium mb-1">Podkategorie: (možnost přesunout jinam)</label>
+            <select
+              name="subcategory"
+              value={editedService.subcategory || ''}
+              onChange={handleChange}
+              className="w-full p-2 border rounded"
+            >
+              <option value="">Vyberte podkategorii</option>
+              {subcategories.map((subcategory) => (
+                <option key={subcategory} value={subcategory}>
+                  {subcategory}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-section">
             <label className="block text-sm font-medium mb-1">Cena (Kč):</label>
             <input
               type="number"
@@ -58,6 +92,7 @@ const EditServiceModal = ({ isOpen, service, onClose, onSave }) => {
               className="w-full p-2 border rounded"
             />
           </div>
+          
 
           <div className="form-section">
             <label className="flex items-center space-x-2">
