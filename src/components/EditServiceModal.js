@@ -1,20 +1,29 @@
 import React, { useState, useEffect } from 'react';
+import { Clock, Trash2 } from 'lucide-react';
+import { useServiceContext } from './ServiceContext';
 import Modal from './ui/Modal';
 import Button from './ui/Button';
-import { Clock } from 'lucide-react';
-import { useServiceContext } from './ServiceContext';
 
-const EditServiceModal = ({ isOpen, service, onClose, onSave }) => {
+const EditServiceModal = ({ isOpen, service, onClose, onSave, onDelete }) => {
   const { serviceGroups } = useServiceContext();
-  const [editedService, setEditedService] = useState({
-    ...service,
-    hourly: service.hourly || false
-  });
+  const [editedService, setEditedService] = useState(null);
   const [subcategories, setSubcategories] = useState([]);
 
   useEffect(() => {
-    // Získání všech podkategorií pro danou hlavní kategorii
-    if (service.mainCategory && serviceGroups[service.mainCategory]?.items) {
+    if (service) {
+      setEditedService({
+        ...service,
+        hourly: Boolean(service.hourly),
+        hasVariants: Boolean(service.hasVariants),
+        isPackage: Boolean(service.isPackage),
+        variants: service.variants || [],
+        mainCategory: service.mainCategory
+      });
+    }
+  }, [service]);
+
+  useEffect(() => {
+    if (service?.mainCategory && serviceGroups[service.mainCategory]?.items) {
       const uniqueSubcategories = [
         ...new Set(
           serviceGroups[service.mainCategory].items
@@ -24,7 +33,9 @@ const EditServiceModal = ({ isOpen, service, onClose, onSave }) => {
       ];
       setSubcategories(uniqueSubcategories);
     }
-  }, [service.mainCategory, serviceGroups]);
+  }, [service?.mainCategory, serviceGroups]);
+
+  if (!editedService) return null;
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -35,7 +46,7 @@ const EditServiceModal = ({ isOpen, service, onClose, onSave }) => {
   };
 
   const handleSave = () => {
-    if (!editedService.name.trim()) {
+    if (!editedService.name?.trim()) {
       alert('Název služby je povinný');
       return;
     }
@@ -43,30 +54,55 @@ const EditServiceModal = ({ isOpen, service, onClose, onSave }) => {
       alert('Cena musí být platné číslo');
       return;
     }
-    onSave({
+
+    const serviceToSave = {
       ...editedService,
-      price: Number(editedService.price)
-    });
+      id: service.id,
+      mainCategory: service.mainCategory,
+      price: Number(editedService.price),
+      hourly: Boolean(editedService.hourly),
+      hasVariants: Boolean(editedService.hasVariants),
+      variants: editedService.variants || [],
+      isPackage: Boolean(editedService.isPackage)
+    };
+
+    console.log('Ukládám službu:', serviceToSave);
+    onSave(serviceToSave);
   };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
       <div className="p-4">
-        <h2 className="text-xl font-bold mb-4">Upravit službu</h2>
+        {/* Hlavička s nadpisem a ikonou smazání */}
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Upravit službu</h2>
+          <button
+            onClick={() => {
+              if (window.confirm('Opravdu chcete tuto službu smazat?')) {
+                onDelete();
+                onClose();
+              }
+            }}
+            className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
+          >
+            <Trash2 size={20} />
+          </button>
+        </div>
+
         <div className="space-y-4">
           <div className="form-section">
             <label className="block text-sm font-medium mb-1">Název služby:</label>
             <input
               type="text"
               name="name"
-              value={editedService.name}
+              value={editedService.name || ''}
               onChange={handleChange}
               className="w-full p-2 border rounded"
             />
           </div>
 
           <div className="form-section">
-            <label className="block text-sm font-medium mb-1">Podkategorie: (možnost přesunout jinam)</label>
+            <label className="block text-sm font-medium mb-1">Podkategorie:</label>
             <select
               name="subcategory"
               value={editedService.subcategory || ''}
@@ -87,19 +123,18 @@ const EditServiceModal = ({ isOpen, service, onClose, onSave }) => {
             <input
               type="number"
               name="price"
-              value={editedService.price}
+              value={editedService.price || ''}
               onChange={handleChange}
               className="w-full p-2 border rounded"
             />
           </div>
-          
 
           <div className="form-section">
             <label className="flex items-center space-x-2">
               <input
                 type="checkbox"
                 name="hourly"
-                checked={editedService.hourly}
+                checked={editedService.hourly || false}
                 onChange={handleChange}
                 className="rounded"
               />
@@ -110,9 +145,16 @@ const EditServiceModal = ({ isOpen, service, onClose, onSave }) => {
             </label>
           </div>
 
-          <div className="flex justify-end space-x-2 mt-6">
+          <div className="flex justify-end space-x-2 mt-4">
             <Button variant="outline" onClick={onClose}>Zrušit</Button>
-            <Button onClick={handleSave}>Uložit</Button>
+            <Button 
+              onClick={() => {
+                handleSave();
+                onClose();
+              }}
+            >
+              Uložit
+            </Button>
           </div>
         </div>
       </div>

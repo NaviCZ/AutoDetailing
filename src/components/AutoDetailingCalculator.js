@@ -69,8 +69,15 @@ const AutoDetailingCalculator = () => {
     }
   };
 
-  const handleEditService = (service) => {
-    setEditingService(service);
+  const handleEditService = async (category, updatedService) => {
+    console.log('AutoDetailingCalculator - editace služby:', { category, updatedService });
+    try {
+      await updateService(category, updatedService);
+      console.log('Služba úspěšně aktualizována');
+    } catch (error) {
+      console.error('Chyba při aktualizaci služby:', error);
+      alert('Nepodařilo se uložit změny: ' + error.message);
+    }
   };
 
   const handleEditServiceSave = (groupId, updatedService) => {

@@ -139,23 +139,34 @@ export const ServiceProvider = ({ children }) => {
   };
 
   const updateService = async (serviceGroupId, updatedService) => {
+    console.log('ServiceContext - updateService spuštěn:', { serviceGroupId, updatedService });
     const database = getDatabase();
     const serviceRef = ref(database, `services/${serviceGroupId}/items/${updatedService.id}`);
     
     try {
-      await set(serviceRef, updatedService);
-      setServiceGroups(prev => ({
-        ...prev,
-        [serviceGroupId]: {
-          ...prev[serviceGroupId],
-          items: prev[serviceGroupId]?.items.map(service => 
-            service.id === updatedService.id ? updatedService : service
-          )
-        },
-      }));
+      // Připravíme data pro uložení
+      const serviceData = {
+        id: updatedService.id,
+        name: updatedService.name,
+        price: Number(updatedService.price),
+        mainCategory: serviceGroupId,
+        subcategory: updatedService.subcategory || '',
+        hourly: Boolean(updatedService.hourly),
+        hasVariants: false,
+        variants: [],
+        isPackage: false
+      };
+  
+      console.log('Data k uložení do Firebase:', serviceData);
+      
+      // Uložíme do Firebase
+      await set(serviceRef, serviceData);
+      console.log('Data úspěšně uložena do Firebase');
+  
+      return true;
     } catch (err) {
       console.error('Chyba při úpravě služby:', err);
-      setError('Chyba při úpravě služby: ' + err.message);
+      throw err;
     }
   };
 
