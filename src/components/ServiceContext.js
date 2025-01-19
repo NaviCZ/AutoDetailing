@@ -1,26 +1,39 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getDatabase, ref, get, push, set, remove, onValue } from 'firebase/database';
 
+// ====== Vytvoření kontextu ======
 const ServiceContext = createContext();
 
 export const ServiceProvider = ({ children }) => {
+  // ====== Základní stavy ======
   const [serviceGroups, setServiceGroups] = useState({});
   const [packages, setPackages] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // ====== Stav nastavení aplikace ======
+  const [settings, setSettings] = useState({
+    carSizeMarkup: 0.3,
+    priceListYear: new Date().getFullYear()
+  });
 
+  // ====== Načtení dat z Firebase ======
   useEffect(() => {
     const database = getDatabase();
+    
+    // Načtení služeb
     const servicesRef = ref(database, 'services');
-  
-    // Vytvoříme listener pro real-time aktualizace
-    const unsubscribe = onValue(servicesRef, (snapshot) => {
+    // Načtení nastavení
+    const settingsRef = ref(database, 'settings');
+    
+    // Listener pro služby
+    const servicesUnsubscribe = onValue(servicesRef, (snapshot) => {
       if (snapshot.exists()) {
         const servicesData = snapshot.val();
         const transformedServices = {};
         const packagesData = {};
         
-        // Procházení všech kategorií
+        // Zpracování dat
         Object.entries(servicesData).forEach(([category, categoryData]) => {
           if (category === 'package') {
             // Zpracování balíčků
@@ -51,12 +64,22 @@ export const ServiceProvider = ({ children }) => {
       setError('Chyba při načítání dat: ' + error.message);
       setLoading(false);
     });
-  
-    // Cleanup listener při unmount
-    return () => unsubscribe();
-  }, []); // Prázdné dependency array - spustí se pouze jednou při mount
 
-  // Přidání nového balíčku
+    // Listener pro nastavení
+    const settingsUnsubscribe = onValue(settingsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setSettings(snapshot.val());
+      }
+    });
+  
+    // Cleanup při unmount
+    return () => {
+      servicesUnsubscribe();
+      settingsUnsubscribe();
+    };
+  }, []);
+
+  // ====== Funkce pro správu balíčků ======
   const addPackage = async (packageData) => {
     const database = getDatabase();
     const packageRef = ref(database, `services/package/items/${packageData.id}`);
@@ -78,7 +101,6 @@ export const ServiceProvider = ({ children }) => {
     }
   };
 
-  // Úprava existujícího balíčku
   const updatePackage = async (packageId, updatedPackage) => {
     const database = getDatabase();
     const packageRef = ref(database, `services/package/items/${packageId}`);
@@ -100,7 +122,6 @@ export const ServiceProvider = ({ children }) => {
     }
   };
 
-  // Smazání balíčku
   const deletePackage = async (packageId) => {
     const database = getDatabase();
     const packageRef = ref(database, `services/package/items/${packageId}`);
@@ -122,16 +143,13 @@ export const ServiceProvider = ({ children }) => {
     }
   };
 
-  // Původní metody pro práci se službami zůstávají stejné...
+  // ====== Funkce pro správu služeb ======
   const addService = async (serviceGroupId, newService) => {
     const database = getDatabase();
     try {
       const category = serviceGroupId || (newService.isPackage ? 'package' : 'undefined');
       const serviceRef = ref(database, `services/${category}/items/${newService.id}`);
       await set(serviceRef, newService);
-  
-      // Let the Firebase listener handle the state update
-      // Remove the manual state updates to prevent duplicates
     } catch (err) {
       console.error('Chyba při přidávání služby:', err);
       setError('Chyba při přidávání služby: ' + err.message);
@@ -139,12 +157,10 @@ export const ServiceProvider = ({ children }) => {
   };
 
   const updateService = async (serviceGroupId, updatedService) => {
-    console.log('ServiceContext - updateService spuštěn:', { serviceGroupId, updatedService });
     const database = getDatabase();
     const serviceRef = ref(database, `services/${serviceGroupId}/items/${updatedService.id}`);
     
     try {
-      // Připravíme data pro uložení
       const serviceData = {
         id: updatedService.id,
         name: updatedService.name,
@@ -156,13 +172,8 @@ export const ServiceProvider = ({ children }) => {
         variants: [],
         isPackage: false
       };
-  
-      console.log('Data k uložení do Firebase:', serviceData);
       
-      // Uložíme do Firebase
       await set(serviceRef, serviceData);
-      console.log('Data úspěšně uložena do Firebase');
-  
       return true;
     } catch (err) {
       console.error('Chyba při úpravě služby:', err);
@@ -189,28 +200,44 @@ export const ServiceProvider = ({ children }) => {
     }
   };
 
+  // ====== Funkce pro správu nastavení ======
+  const updateSettings = async (newSettings) => {
+    const database = getDatabase();
+    const settingsRef = ref(database, 'settings');
+    try {
+      await set(settingsRef, newSettings);
+      setSettings(newSettings);
+      return true;
+    } catch (err) {
+      console.error('Chyba při ukládání nastavení:', err);
+      throw err;
+    }
+  };
+
+  // ====== Poskytnutí kontextu ======
   return (
-  <ServiceContext.Provider
-    value={{
-      serviceGroups,
-      packages,
-      loading,
-      error,
-      addService,
-      updateService,
-      deleteService,
-      addPackage,
-      updatePackage, // Přidáno
-      deletePackage,
-    }}
-  >
-    {children}
-  </ServiceContext.Provider>
-);
+    <ServiceContext.Provider
+      value={{
+        serviceGroups,
+        packages,
+        loading,
+        error,
+        settings,
+        addService,
+        updateService,
+        deleteService,
+        addPackage,
+        updatePackage,
+        deletePackage,
+        updateSettings
+      }}
+    >
+      {children}
+    </ServiceContext.Provider>
+  );
 };
 
-
-
+// ====== Hook pro použití kontextu ======
 export const useServiceContext = () => {
   return useContext(ServiceContext);
 };

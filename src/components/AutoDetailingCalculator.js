@@ -583,91 +583,93 @@ const AutoDetailingCalculator = () => {
 
       <Card className="bg-gray-50">
   <CardContent className="pt-6">
-  <div className="space-y-4">
-  <h3 className="text-lg font-bold mb-4">Balíčky služeb</h3>
-  {packages && Object.entries(packages).map(([packageName, packageDetails], index) => (
-    <div 
-      key={`${packageName}-${index}`} 
-      className={`border rounded-lg ${selectedPackages[packageName] ? 'bg-blue-50' : ''}`}
-    >
-      <div className="flex flex-col">
-        <div
-          className={`flex items-center justify-between p-2 cursor-pointer hover:bg-gray-50`}
-          onClick={() => {
-            togglePackage(packageName);
-            setActivePackageId(packageName);
-          }}
+    <div className="space-y-4">
+      <h3 className="text-lg font-bold mb-4">Balíčky služeb</h3>
+      {packages && Object.entries(packages).map(([packageName, packageDetails], index) => (
+        <div 
+          key={`${packageName}-${index}`} 
+          className={`border rounded-lg ${selectedPackages[packageName] ? 'bg-blue-50' : ''}`}
         >
-          <div className="flex items-center flex-1">
-            <input
-              type="checkbox"
-              checked={!!selectedPackages[packageName]}
-              onChange={(e) => {
-                e.stopPropagation();
-                togglePackage(packageName);
-                setActivePackageId(packageName);
-              }}
-              className="h-4 w-4 rounded border-gray-300"
-            />
-            <span className="ml-2">{packageName}</span>
+          <div 
+            className="flex items-center justify-between hover:bg-gray-100 p-2 cursor-pointer group"
+            onClick={() => togglePackage(packageName)}
+          >
+            <div className="flex items-center flex-1">
+              <input
+                type="checkbox"
+                checked={!!selectedPackages[packageName]}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  togglePackage(packageName);
+                }}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <span className="ml-2">{packageName}</span>
+            </div>
+
+            <div className="flex items-center gap-2 ml-auto">
+              <span className="font-medium whitespace-nowrap w-24 text-right">
+                {packageDetails.price?.toLocaleString()} Kč
+              </span>
+              
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpandedPackage(expandedPackage === packageName ? null : packageName);
+                }}
+                className="p-1 hover:bg-gray-200 rounded"
+                title="Zobrazit obsah balíčku"
+              >
+                <HelpCircle size={16} className="text-gray-600" />
+              </button>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEditPackage(packageName, packageDetails);
+                }}
+                className="p-1 hover:bg-gray-200 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <Edit2 size={16} className="text-gray-600" />
+              </button>
+            </div>
           </div>
 
-          <span className="font-medium whitespace-nowrap min-w-[80px] text-right">
-            {packageDetails.price?.toLocaleString()} Kč
-          </span>
+          {/* Detail balíčku */}
+          {expandedPackage === packageName && (
+            <div className="border-t p-3 bg-gray-50">
+              <ul className="space-y-1">
+                {packageDetails.services?.map(serviceId => {
+                  const service = findServiceById(serviceId);
+                  if (!service) return null;
+                  return (
+                    <li key={serviceId} className="flex justify-between items-center">
+                      <span>• {service.name}</span>
+                      <span className="text-gray-600 w-24 text-right">{service.price?.toLocaleString()} Kč</span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="mt-3 pt-2 border-t">
+                <div className="flex justify-between items-center text-blue-600 font-medium">
+                  <span>Celková hodnota služeb:</span>
+                  <span className="w-24 text-right">
+                    {packageDetails.services?.reduce((sum, serviceId) => {
+                      const service = findServiceById(serviceId);
+                      return sum + (service?.price || 0);
+                    }, 0).toLocaleString()} Kč
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-green-600 font-medium">
+                  <span>Cena balíčku:</span>
+                  <span className="w-24 text-right">{packageDetails.price?.toLocaleString()} Kč</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-
-        {/* Druhý řádek s editační ikonou */}
-        {selectedPackages[packageName] && activePackageId === packageName && (
-          <div className="flex justify-end p-2 pt-0">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleEditPackage(packageName, packageDetails);
-              }}
-              className="p-2 hover:bg-white rounded border"
-            >
-              <Edit2 size={16} className="text-gray-600" />
-            </button>
-          </div>
-        )}
+      ))}
     </div>
-
-
-
-
-      {/* Rozbalený detail balíčku */}
-      {expandedPackage === packageName && (
-        <div className="border-t p-3 bg-gray-50">
-          <h4 className="font-medium mb-2">Obsah balíčku:</h4>
-          <ul className="space-y-1 ml-4">
-            {packageDetails.services?.map(serviceId => {
-              const service = findServiceById(serviceId);
-              if (!service) return null;
-              return (
-                <li key={serviceId} className="flex justify-between">
-                  <span>• {service.name}</span>
-                  <span className="text-gray-600">{service.price?.toLocaleString()} Kč</span>
-                </li>
-              );
-            })}
-          </ul>
-          <div className="mt-3 pt-2 border-t flex justify-between text-blue-600 font-medium">
-            <span>Celková hodnota služeb:</span>
-            <span>{packageDetails.services?.reduce((sum, serviceId) => {
-              const service = findServiceById(serviceId);
-              return sum + (service?.price || 0);
-            }, 0).toLocaleString()} Kč</span>
-          </div>
-          <div className="mt-1 flex justify-between text-green-600 font-medium">
-            <span>Cena balíčku:</span>
-            <span>{packageDetails.price?.toLocaleString()} Kč</span>
-          </div>
-        </div>
-      )}
-    </div>
-  ))}
-</div>
   </CardContent>
 </Card>
 

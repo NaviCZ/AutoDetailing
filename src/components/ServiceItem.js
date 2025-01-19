@@ -1,5 +1,5 @@
-import React from 'react';
-import { Edit2, Clock, Plus, Minus } from 'lucide-react';
+import React, { useState } from 'react';
+import { Edit2, Clock, Plus, Minus, ChevronDown, ChevronRight } from 'lucide-react';
 
 const ServiceItem = ({ 
   service, 
@@ -10,6 +10,8 @@ const ServiceItem = ({
   onHoursChange,
   isActive 
 }) => {
+  const [showPackageDetails, setShowPackageDetails] = useState(false);
+  
   if (!service) return null;
 
   const handleHoursChange = (e) => {
@@ -38,18 +40,20 @@ const ServiceItem = ({
     onToggle(service.id);
   };
 
-  // Formátování zobrazené hodnoty
   const displayValue = serviceHours[service.id] !== undefined && serviceHours[service.id] !== '' 
     ? (Math.round(serviceHours[service.id] * 10) / 10).toFixed(1) 
     : '';
 
-    return (
-        <div 
-          className={`py-2 ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'} cursor-pointer transition-colors duration-150`}
-          onClick={handleClick}
-        >
-          <div className="flex items-center">
-            <div className="flex items-start flex-1 min-w-0">
+  return (
+    <div 
+      className={`${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'} cursor-pointer transition-colors duration-150`}
+      onClick={handleClick}
+    >
+      <div className="p-2">
+        {service.hourly ? (
+          <div className="flex flex-col gap-1">
+            {/* Horní řádek s checkboxem a názvem */}
+            <div className="flex items-start gap-2">
               <input
                 type="checkbox"
                 checked={isSelected}
@@ -57,23 +61,27 @@ const ServiceItem = ({
                 className="h-4 w-4 mt-1 rounded border-gray-300"
                 onClick={e => e.stopPropagation()}
               />
-              <span className="ml-2 flex-1 min-w-0">
-                {service.name}
-                {service.hourly && (
-                  <Clock className="inline-block ml-2 h-4 w-4 text-gray-400 min-w-[20px] min-h-[20px] align-text-bottom" />
-                )}
-              </span>
+              <div className="flex items-start gap-1 flex-grow">
+                <span className="break-words">{service.name}</span>
+                <Clock className="h-4 w-4 text-gray-400 mt-0.5" />
+              </div>
+              {!isSelected && (
+                <div className="font-medium whitespace-nowrap text-right">
+                  {service.price?.toLocaleString()} Kč/hod
+                </div>
+              )}
             </div>
-    
-            <div className="flex items-center gap-2">
-              {service.hourly && isSelected && (
+
+            {/* Spodní řádek s hodinovou sazbou a cenou - pouze když je vybraná */}
+            {isSelected && (
+              <div className="flex items-center justify-end gap-2 pl-6">
                 <div 
-                  className="flex items-center gap-1 bg-white p-1 rounded border" 
+                  className="flex items-center bg-white rounded border" 
                   onClick={e => e.stopPropagation()}
                 >
                   <button
                     onClick={() => adjustHours(-0.1)}
-                    className="p-1.5 hover:bg-gray-100 rounded text-gray-600"
+                    className="p-1 hover:bg-gray-100 rounded-l text-gray-600"
                   >
                     <Minus size={14} />
                   </button>
@@ -81,7 +89,7 @@ const ServiceItem = ({
                     type="number"
                     value={displayValue}
                     onChange={handleHoursChange}
-                    className="w-16 p-1 border rounded text-sm text-center"
+                    className="w-12 p-1 text-sm text-center"
                     step="0.1"
                     min="0"
                     inputMode="decimal"
@@ -89,34 +97,82 @@ const ServiceItem = ({
                   />
                   <button
                     onClick={() => adjustHours(0.1)}
-                    className="p-1.5 hover:bg-gray-100 rounded text-gray-600"
+                    className="p-1 hover:bg-gray-100 text-gray-600"
                   >
                     <Plus size={14} />
                   </button>
-                  <span className="text-sm text-gray-500 whitespace-nowrap pl-1">hod</span>
+                  <span className="text-sm text-gray-500 px-1">hod</span>
                 </div>
-              )}
-    
+                {isActive && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(service);
+                    }}
+                    className="p-1 hover:bg-white rounded border"
+                  >
+                    <Edit2 size={16} className="text-gray-600" />
+                  </button>
+                )}
+                <div className="font-medium whitespace-nowrap text-right">
+                  {service.price?.toLocaleString()} Kč/hod
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={handleClick}
+              className="h-4 w-4 mt-1 rounded border-gray-300"
+              onClick={e => e.stopPropagation()}
+            />
+            <span className="break-words flex-grow">{service.name}</span>
+            <div className="flex items-center gap-1 flex-shrink-0">
               {isSelected && isActive && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     onEdit(service);
                   }}
-                  className="p-2 hover:bg-white rounded border"
+                  className="p-1 hover:bg-white rounded border"
                 >
                   <Edit2 size={16} className="text-gray-600" />
                 </button>
               )}
-    
-              <span className="font-medium whitespace-nowrap min-w-[80px] text-right">
+              <div className="font-medium whitespace-nowrap text-right">
                 {service.price?.toLocaleString()} Kč
-                {service.hourly && '/hod'}
-              </span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Detail balíčku */}
+      {showPackageDetails && service.isPackage && (
+        <div className="pl-8 pr-4 pb-2 text-sm border-t">
+          {service.items?.map((item, index) => (
+            <div key={index} className="flex justify-between py-1 text-gray-600">
+              <span className="pr-4">• {item.name}</span>
+              <span>{item.price} Kč</span>
+            </div>
+          ))}
+          <div className="border-t mt-2 pt-2">
+            <div className="flex justify-between font-medium">
+              <span>Celková hodnota služeb:</span>
+              <span>{service.totalPrice} Kč</span>
+            </div>
+            <div className="flex justify-between text-blue-600 font-medium">
+              <span>Cena balíčku se slevou {service.discount}%:</span>
+              <span>{Math.round(service.totalPrice * (1 - service.discount / 100))} Kč</span>
             </div>
           </div>
         </div>
-      );
-    };
+      )}
+    </div>
+  );
+};
 
 export default ServiceItem;

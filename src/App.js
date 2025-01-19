@@ -6,8 +6,10 @@ import LoginPage from './components/LoginPage';
 import Logout from './components/Logout';
 import ProductManagement from './components/ProductManagement';
 import { signInUser, signOutUser, onAuthStateChangedListener } from './components/Firebase';
-import { FaUser, FaCalculator, FaList, FaBoxes } from 'react-icons/fa';
+import { FaUser, FaCalculator, FaList, FaBoxes,FaCog } from 'react-icons/fa';
 import { ServiceProvider, useServiceContext } from './components/ServiceContext';
+import AdminSettings from './components/AdminSettings';
+
 
 const App = () => {
   const [user, setUser] = useState(null);
@@ -71,6 +73,7 @@ const App = () => {
             <Route path="/login" element={<LoginPage setUser={setUser} />} />
             <Route path="/logout" element={<Logout setUser={setUser} />} />
             <Route path="/products" element={<ProductManagement />} />
+            <Route path="/admin" element={<AdminSettings />} />
           </Routes>
         </div>
       </ServiceProvider>
@@ -80,7 +83,7 @@ const App = () => {
 
 
 const Home = ({ user }) => {
-  const { serviceGroups, packages } = useServiceContext();
+  const { serviceGroups, packages, settings  } = useServiceContext();
 
   const generatePriceListPDF = () => {
     // Kontrola, zda máme potřebná data
@@ -195,61 +198,52 @@ const Home = ({ user }) => {
     </head>
     <body>
       <img src="./Logo.png" alt="Logo firmy" class="logo" />
-      <h1>Ceník služeb MV Auto Detailing - <span class="year">2024</span></h1>
+      <h2>Ceník služeb MV Auto Detailing - <span class="year">${settings.priceListYear}</span></h2>
 
       <h2>Balíčky služeb</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Balíček</th>
-            <th>Cena</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${Object.entries(packages).map(([packageName, packageDetails]) => `
-            <tr>
-              <td>${packageName}</td>
-              <td>${packageDetails.price?.toLocaleString()} Kč</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
+<table>
+  <thead>
+    <tr>
+      <th style="width: 80%">Balíček</th>
+      <th style="width: 20%; text-align: right">Cena</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${Object.entries(packages).map(([packageName, packageDetails]) => {
+      const totalValue = (packageDetails.services || []).reduce((sum, serviceId) => {
+        const service = findServiceById(serviceId);
+        return sum + (service?.price || 0);
+      }, 0);
 
-      <h2>Interiér</h2>
-      <table>
-        <thead>
+      const arePricesEqual = totalValue === packageDetails.price;
+
+      return `
+        <tr>
+          <td><strong>${packageName}</strong></td>
+          <td style="text-align: right">${packageDetails.price?.toLocaleString()} Kč</td>
+        </tr>
+        ${packageDetails.services?.map(serviceId => {
+          const service = findServiceById(serviceId);
+          if (!service) return '';
+          return `
+            <tr>
+              <td class="variant" style="background-color: #f8f9fa;">• ${service.name}</td>
+              <td style="text-align: right; background-color: #f8f9fa;">${service.price?.toLocaleString()} Kč</td>
+            </tr>
+          `;
+        }).join('')}
+        ${!arePricesEqual ? `
           <tr>
-            <th>Služba</th>
-            <th>Cena</th>
+            <td style="text-align: right; color: rgb(112, 107, 107);"><strong>Celková hodnota služeb:</strong></td>
+            <td style="text-align: right; color: rgb(112, 107, 107);"><strong>${totalValue.toLocaleString()} Kč</strong></td>
           </tr>
-        </thead>
-        <tbody>
-          ${Object.values(serviceGroups?.interior?.items || []).map(service => {
-            if (service.hasVariants) {
-              // Pro služby s variantami
-              return `
-                <tr>
-                  <td colspan="2"><strong>${service.name}</strong></td>
-                </tr>
-                ${service.variants.map(variant => `
-                  <tr>
-        <td class="variant" style="width: 80%">${variant.name}</td>
-        <td style="white-space: nowrap; text-align: right">${variant.price.toLocaleString()} Kč</td>
-      </tr>
-                `).join('')}
-              `;
-            } else {
-              // Pro běžné služby
-              return `
-                <tr>
-                  <td>${service.name}</td>
-                  <td>${service.price.toLocaleString()} Kč${service.hourly ? ' / hod' : ''}</td>
-                </tr>
-              `;
-            }
-          }).join('')}
-        </tbody>
-      </table>
+          
+        ` : ''}
+        <tr><td colspan="2" style="border: none; height: 20px;"></td></tr>
+      `;
+    }).join('')}
+  </tbody>
+</table>
 
       <h2>Exteriér</h2>
       <table>
@@ -290,7 +284,7 @@ const Home = ({ user }) => {
         <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
           <h3 style="color: #2563eb; margin: 0 0 10px 0;">Důležité informace:</h3>
           <p style="margin: 0; color: #374151;">
-            <strong>Příplatek za větší vozy:</strong> Pro SUV, dodávky a větší vozidla se účtuje příplatek 30% k základní ceně služeb.
+            <strong>Příplatek za větší vozy:</strong> Pro SUV, dodávky a větší vozidla se účtuje příplatek ${Math.round(settings.carSizeMarkup * 100)}% k základní ceně služeb.
           </p>
         </div>
 
@@ -315,35 +309,44 @@ const Home = ({ user }) => {
   printWindow.print();
 };
 
-  return (
-    <div className="container mx-auto p-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">
-        Vítejte na stránce MV Auto Detailing
-      </h1>
-      
-      {user ? (
-        <div className="mt-8 flex space-x-4">
-          <Link
-            to="/calculator"
-            className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors inline-flex items-center"
-          >
-            <FaCalculator className="mr-2" />
-            Kalkulačka
-          </Link>
-          <button
-            onClick={generatePriceListPDF}
-            className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors inline-flex items-center"
-          >
-            <FaList className="mr-2" />
-            Ceník
-          </button>
-          <Link
-            to="/products"
-            className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors inline-flex items-center"
-          >
-            <FaBoxes className="mr-2" />
-            Správa produktů
-          </Link>
+return (
+  <div className="container mx-auto p-8">
+    <h1 className="text-3xl font-bold text-gray-900 mb-8 text-center">
+      Vítejte na stránce <br />
+      <span className="whitespace-nowrap">MV Auto Detailing</span>
+    </h1>
+
+    {user ? (
+      <div className="mt-8 flex flex-wrap gap-4 justify-center">
+        <Link
+          to="/calculator"
+          className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors inline-flex items-center w-full sm:w-auto"
+        >
+          <FaCalculator className="mr-2" />
+          Kalkulačka
+        </Link>
+        <button
+          onClick={generatePriceListPDF}
+          className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors inline-flex items-center w-full sm:w-auto"
+        >
+          <FaList className="mr-2" />
+          Ceník
+        </button>
+        <Link
+          to="/products"
+          className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors inline-flex items-center w-full sm:w-auto"
+        >
+          <FaBoxes className="mr-2" />
+          Správa produktů
+        </Link>
+        <Link
+          to="/admin"
+          className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors inline-flex items-center w-full sm:w-auto"
+        >
+          <FaCog className="mr-2" />
+          Administrace
+        </Link>
+
         </div>
       ) : (
         <div className="mt-8 space-y-6">
