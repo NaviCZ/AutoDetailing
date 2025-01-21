@@ -157,21 +157,28 @@ export const ServiceProvider = ({ children }) => {
   };
 
   const updateService = async (serviceGroupId, updatedService) => {
+    console.log('ServiceContext - updateService vstup:', { serviceGroupId, updatedService });
+    
     const database = getDatabase();
     const serviceRef = ref(database, `services/${serviceGroupId}/items/${updatedService.id}`);
+    
+    // Explicitní ověření variant
+    const hasVariants = Boolean(updatedService.variants?.length > 0);
     
     try {
       const serviceData = {
         id: updatedService.id,
-        name: updatedService.name,
-        price: Number(updatedService.price),
+        name: updatedService.name || '',
+        price: Number(updatedService.price) || 0,
         mainCategory: serviceGroupId,
         subcategory: updatedService.subcategory || '',
         hourly: Boolean(updatedService.hourly),
-        hasVariants: false,
-        variants: [],
-        isPackage: false
+        hasVariants: hasVariants,
+        variants: hasVariants ? updatedService.variants : [],
+        isPackage: Boolean(updatedService.isPackage)
       };
+  
+      console.log('ServiceContext - Finální data k uložení:', serviceData);
       
       await set(serviceRef, serviceData);
       return true;

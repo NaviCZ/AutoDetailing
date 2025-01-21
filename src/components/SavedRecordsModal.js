@@ -76,11 +76,7 @@ const SavedRecordsModal = ({ onClose, onLoadRecord }) => {
                   {record.vehicleNotes && (
                     <p className="text-gray-700">{record.vehicleNotes}</p>
                   )}
-                  {record.selectedPackages && Object.keys(record.selectedPackages).length > 0 && (
-                    <p className="text-gray-600 text-sm">
-                      Vybrané balíčky: {Object.keys(record.selectedPackages).join(', ')}
-                    </p>
-                  )}
+                
                   <p className="text-gray-700">Uložil: {record.userEmail}</p>
                 </div>
                 <div className="flex space-x-2">

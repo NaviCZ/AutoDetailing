@@ -70,19 +70,32 @@ const AutoDetailingCalculator = () => {
   };
 
   const handleEditService = async (category, updatedService) => {
-    console.log('AutoDetailingCalculator - editace služby:', { category, updatedService });
-    try {
-      await updateService(category, updatedService);
-      console.log('Služba úspěšně aktualizována');
-    } catch (error) {
-      console.error('Chyba při aktualizaci služby:', error);
-      alert('Nepodařilo se uložit změny: ' + error.message);
+    console.log('AutoDetailingCalculator - editace služby před zpracováním:', 
+      { category, updatedService }
+    );
+  
+    if (!category || !updatedService) {
+      console.error('Chybí data pro editaci:', { category, updatedService });
+      return;
     }
+  
+    // Přidáme nastavení editingService pro otevření modalu
+    setEditingService({
+      ...updatedService,
+      mainCategory: category
+    });
   };
 
   const handleEditServiceSave = (groupId, updatedService) => {
-    updateService(groupId, updatedService); // Zajištění, že změny se uloží
-    setEditingService(null); // Zavření modálu
+    if (!groupId || !updatedService) {
+      console.error('Chybí data pro uložení:', { groupId, updatedService });
+      return;
+    }
+    updateService(groupId, {
+      ...updatedService,
+      mainCategory: groupId
+    });
+    setEditingService(null);
   };
   
 
@@ -348,27 +361,27 @@ const AutoDetailingCalculator = () => {
 
   const renderServiceGroup = (category, group) => (
     <ServiceGroup
-      key={category}
-      category={category}
-      group={group}
-      onToggleService={toggleService}
-      onEditService={handleEditService}
-      onDeleteService={handleDeleteService}
-      selectedServices={selectedServices}
-      selectedVariants={selectedVariants}
-      onVariantSelect={handleVariantSelect}
-      onEditGroup={handleEditGroup}
-      onDeleteGroup={handleDeleteGroup}
-      onEditSubcategory={handleEditSubcategory}
-      onDeleteSubcategory={handleDeleteSubcategory}
-      serviceHours={serviceHours}
-      onHoursChange={(serviceId, hours) => {
-        setServiceHours(prev => ({
-          ...prev,
-          [serviceId]: hours
-        }));
-      }}
-    />
+  key={category}
+  category={category}
+  group={group}
+  onToggleService={toggleService}
+  onEditService={handleEditService}
+  onDeleteService={handleDeleteService}
+  selectedServices={selectedServices}
+  selectedVariants={selectedVariants}
+  onVariantSelect={handleVariantSelect}
+  onEditGroup={handleEditGroup}
+  onDeleteGroup={handleDeleteGroup}
+  onEditSubcategory={handleEditSubcategory}
+  onDeleteSubcategory={handleDeleteSubcategory}
+  serviceHours={serviceHours}
+  onHoursChange={(serviceId, hours) => {
+    setServiceHours(prev => ({
+      ...prev,
+      [serviceId]: hours
+    }));
+  }}
+/>
   );
 
   const handleEditGroup = (category, editedGroup) => {
@@ -502,8 +515,17 @@ const AutoDetailingCalculator = () => {
   <EditServiceModal
     isOpen={!!editingService}
     service={editingService}
-    onSave={(updatedService) => handleEditServiceSave(editingService.groupId, updatedService)}
+    onSave={(updatedService) => handleEditServiceSave(editingService.mainCategory, updatedService)}
     onClose={() => setEditingService(null)}
+    onDelete={() => {
+      if (editingService.mainCategory && editingService.id) {
+        handleDeleteService(editingService.mainCategory, editingService.id);
+        setEditingService(null);
+      } else {
+        console.error('Chybí data pro smazání služby:', editingService);
+        alert('Nelze smazat službu - chybí potřebná data');
+      }
+    }}
   />
 )}
 

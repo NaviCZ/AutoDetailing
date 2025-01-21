@@ -104,16 +104,19 @@ const ServiceItem = ({
                   <span className="text-sm text-gray-500 px-1">hod</span>
                 </div>
                 {isActive && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEdit(service);
-                    }}
-                    className="p-1 hover:bg-white rounded border"
-                  >
-                    <Edit2 size={16} className="text-gray-600" />
-                  </button>
-                )}
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      console.log('Klik na edit tlačítko:', service);
+      if (typeof onEdit === 'function') {
+        onEdit(service.mainCategory, service);
+      }
+    }}
+    className="p-1 hover:bg-white rounded border"
+  >
+    <Edit2 size={16} className="text-gray-600" />
+  </button>
+)}
                 <div className="font-medium whitespace-nowrap text-right">
                   {service.price?.toLocaleString()} Kč/hod
                 </div>
@@ -131,21 +134,23 @@ const ServiceItem = ({
             />
             <span className="break-words flex-grow">{service.name}</span>
             <div className="flex items-center gap-1 flex-shrink-0">
-              {isSelected && isActive && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit(service);
-                  }}
-                  className="p-1 hover:bg-white rounded border"
-                >
-                  <Edit2 size={16} className="text-gray-600" />
-                </button>
-              )}
-              <div className="font-medium whitespace-nowrap text-right">
-                {service.price?.toLocaleString()} Kč
-              </div>
-            </div>
+            {isSelected && isActive && (
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      if (typeof onEdit === 'function') {
+        onEdit(service.mainCategory, service);
+      }
+    }}
+    className="p-1 hover:bg-white rounded border"
+  >
+    <Edit2 size={16} className="text-gray-600" />
+  </button>
+)}
+  <div className="font-medium whitespace-nowrap text-right">
+    {service.price?.toLocaleString()} Kč
+  </div>
+</div>
           </div>
         )}
       </div>

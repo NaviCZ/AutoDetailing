@@ -4,38 +4,62 @@ import { Button } from './ui/Button';
 import { Plus, Trash2 } from 'lucide-react';
 
 const EditVariantsModal = ({ isOpen, onClose, service, onSave }) => {
-  const [variants, setVariants] = useState(service.variants || []);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // Kontrola, že každá varianta má název a cenu
-    if (variants.some(v => !v.name || !v.price)) {
-      alert('Všechny varianty musí mít vyplněný název a cenu');
-      return;
-    }
-    onSave({
-      ...service,
-      variants,
-      hasVariants: variants.length > 0
-    });
-  };
-
-  const addVariant = () => {
-    setVariants([...variants, { id: `variant-${Date.now()}`, name: '', price: '' }]);
-  };
-
-  const removeVariant = (index) => {
-    setVariants(variants.filter((_, i) => i !== index));
-  };
-
-  const updateVariant = (index, field, value) => {
-    const newVariants = [...variants];
-    newVariants[index] = {
-      ...newVariants[index],
-      [field]: field === 'price' ? Number(value) : value
-    };
-    setVariants(newVariants);
-  };
+    const [variants, setVariants] = useState(service.variants || []);
+  
+    const handleSubmit = (e) => {
+        e.preventDefault();
+      
+        if (variants.some(v => !v.name || !v.price)) {
+          alert('Všechny varianty musí mít vyplněný název a cenu');
+          return;
+        }
+      
+        const finalService = {
+          ...service,
+          variants: [],  // Nejdřív vyčistíme varianty
+          hasVariants: false  // A nastavíme hasVariants na false
+        };
+      
+        // Pouze pokud máme varianty, tak je přidáme
+        if (variants.length > 0) {
+          finalService.variants = variants;
+          finalService.hasVariants = true;
+        }
+      
+        console.log('EditVariantsModal - Finální data před uložením:', finalService);
+        onSave(finalService);
+        onClose();
+      };
+      
+      const removeVariant = (index) => {
+        const newVariants = variants.filter((_, i) => i !== index);
+        setVariants(newVariants);
+      
+        // Pokud jsme smazali poslední variantu, okamžitě uložíme
+        if (newVariants.length === 0) {
+          const finalService = {
+            ...service,
+            variants: [],
+            hasVariants: false
+          };
+          console.log('EditVariantsModal - Mazání poslední varianty:', finalService);
+          onSave(finalService);
+          onClose();
+        }
+      };
+    
+      const addVariant = () => {
+        setVariants([...variants, { id: `variant-${Date.now()}`, name: '', price: '' }]);
+      };
+    
+      const updateVariant = (index, field, value) => {
+        const newVariants = [...variants];
+        newVariants[index] = {
+          ...newVariants[index],
+          [field]: field === 'price' ? Number(value) : value
+        };
+        setVariants(newVariants);
+      };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>

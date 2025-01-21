@@ -11,13 +11,16 @@ const EditServiceModal = ({ isOpen, service, onClose, onSave, onDelete }) => {
 
   useEffect(() => {
     if (service) {
+      // Ujistíme se, že máme mainCategory buď z service nebo z props
+      const mainCategory = service.mainCategory || service.category;
       setEditedService({
         ...service,
+        id: service.id, // Explicitně nastavíme ID
+        mainCategory: mainCategory, // Explicitně nastavíme kategorii
         hourly: Boolean(service.hourly),
         hasVariants: Boolean(service.hasVariants),
         isPackage: Boolean(service.isPackage),
         variants: service.variants || [],
-        mainCategory: service.mainCategory
       });
     }
   }, [service]);
@@ -56,19 +59,23 @@ const EditServiceModal = ({ isOpen, service, onClose, onSave, onDelete }) => {
     }
 
     const serviceToSave = {
-      ...editedService,
-      id: service.id,
-      mainCategory: service.mainCategory,
-      price: Number(editedService.price),
-      hourly: Boolean(editedService.hourly),
-      hasVariants: Boolean(editedService.hasVariants),
-      variants: editedService.variants || [],
-      isPackage: Boolean(editedService.isPackage)
+        ...editedService,
+        id: editedService.id,
+        mainCategory: editedService.mainCategory,
+        name: editedService.name.trim(),
+        price: Number(editedService.price),
+        subcategory: editedService.subcategory || '',
+        hourly: Boolean(editedService.hourly),
+        // Explicitně nastavíme varianty
+        hasVariants: false,
+        variants: [],
+        isPackage: false
+      };
+    
+      console.log('Ukládám službu:', serviceToSave);
+      onSave(serviceToSave);
+      onClose();
     };
-
-    console.log('Ukládám službu:', serviceToSave);
-    onSave(serviceToSave);
-  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>

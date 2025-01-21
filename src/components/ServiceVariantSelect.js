@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Edit2 } from 'lucide-react';
 import EditVariantsModal from './EditVariantsModal';
 
-const ServiceVariantSelect = ({ service, selectedVariantId, onSelect, onEdit }) => {
+const ServiceVariantSelect = ({ service, selectedVariantId, onSelect, onEdit, category }) => { // přidáno category
   const [isEditing, setIsEditing] = useState(false);
 
   if (!service.hasVariants || !service.variants?.length) {
@@ -48,7 +48,10 @@ const ServiceVariantSelect = ({ service, selectedVariantId, onSelect, onEdit }) 
           service={service}
           onClose={() => setIsEditing(false)}
           onSave={(updatedService) => {
-            onEdit(updatedService);
+            onEdit(service.mainCategory || category, { // Upraveno
+              ...updatedService,
+              mainCategory: service.mainCategory || category
+            });
             setIsEditing(false);
           }}
         />

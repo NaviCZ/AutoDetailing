@@ -138,26 +138,27 @@ const ServiceGroup = ({
                       {service.hasVariants ? (
                         // Komponenta pro služby s variantami
                         <ServiceVariantSelect
-                          service={service}
-                          selectedVariantId={selectedVariants[service.id]}
-                          onSelect={(variantId) => onVariantSelect(service.id, variantId)}
-                          isActive={service.id === activeItemId}
-                          onEdit={() => onEditService(service)}
-                        />
+  service={service}
+  category={category} // přidáno
+  selectedVariantId={selectedVariants[service.id]}
+  onSelect={(variantId) => onVariantSelect(service.id, variantId)}
+  isActive={service.id === activeItemId}
+  onEdit={onEditService}
+/>
                       ) : (
                         // Standardní služba
                         <ServiceItem
-                          service={service}
-                          isSelected={selectedServices.has(service.id)}
-                          onToggle={(id) => {
-                            onToggleService(id);
-                            setActiveItemId(id);
-                          }}
-                          onEdit={() => onEditService(service)}
-                          serviceHours={serviceHours}
-                          onHoursChange={onHoursChange}
-                          isActive={service.id === activeItemId}
-                        />
+                        service={{...service, mainCategory: category}}
+                        isSelected={selectedServices.has(service.id)}
+                        onToggle={(id) => {
+                          onToggleService(id);
+                          setActiveItemId(id);
+                        }}
+                        onEdit={onEditService}
+                        serviceHours={serviceHours}
+                        onHoursChange={onHoursChange}
+                        isActive={service.id === activeItemId}
+                      />
                       )}
                     </div>
                   ))}
