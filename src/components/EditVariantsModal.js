@@ -8,28 +8,18 @@ const EditVariantsModal = ({ isOpen, onClose, service, onSave }) => {
   
     const handleSubmit = (e) => {
         e.preventDefault();
-      
-        if (variants.some(v => !v.name || !v.price)) {
-          alert('Všechny varianty musí mít vyplněný název a cenu');
-          return;
-        }
-      
-        const finalService = {
-          ...service,
-          variants: [],  // Nejdřív vyčistíme varianty
-          hasVariants: false  // A nastavíme hasVariants na false
+        
+        const updatedService = {
+            ...service,
+            variants: variants.length > 0 ? variants : [],
+            hasVariants: variants.length > 0,
+            mainCategory: service.mainCategory || service.category
         };
-      
-        // Pouze pokud máme varianty, tak je přidáme
-        if (variants.length > 0) {
-          finalService.variants = variants;
-          finalService.hasVariants = true;
-        }
-      
-        console.log('EditVariantsModal - Finální data před uložením:', finalService);
-        onSave(finalService);
+        
+        console.log('EditVariantsModal - Data k odeslání:', updatedService);
+        onSave(updatedService); // Předání aktualizovaných dat do onSave
         onClose();
-      };
+    };
       
       const removeVariant = (index) => {
         const newVariants = variants.filter((_, i) => i !== index);

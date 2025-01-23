@@ -57,25 +57,24 @@ const EditServiceModal = ({ isOpen, service, onClose, onSave, onDelete }) => {
       alert('Cena musí být platné číslo');
       return;
     }
-
+  
     const serviceToSave = {
-        ...editedService,
-        id: editedService.id,
-        mainCategory: editedService.mainCategory,
-        name: editedService.name.trim(),
-        price: Number(editedService.price),
-        subcategory: editedService.subcategory || '',
-        hourly: Boolean(editedService.hourly),
-        // Explicitně nastavíme varianty
-        hasVariants: false,
-        variants: [],
-        isPackage: false
-      };
-    
-      console.log('Ukládám službu:', serviceToSave);
-      onSave(serviceToSave);
-      onClose();
+      ...editedService,
+      id: editedService.id,
+      mainCategory: editedService.mainCategory,
+      name: editedService.name.trim(),
+      price: Number(editedService.price),
+      subcategory: editedService.subcategory || '',
+      hourly: Boolean(editedService.hourly),
+      // Zachováme varianty
+      hasVariants: editedService.hasVariants,
+      variants: editedService.variants,
+      isPackage: Boolean(editedService.isPackage)
     };
+  
+    console.log('Data k uložení:', serviceToSave);
+    onSave(serviceToSave);
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
@@ -109,21 +108,24 @@ const EditServiceModal = ({ isOpen, service, onClose, onSave, onDelete }) => {
           </div>
 
           <div className="form-section">
-            <label className="block text-sm font-medium mb-1">Podkategorie:</label>
-            <select
-              name="subcategory"
-              value={editedService.subcategory || ''}
-              onChange={handleChange}
-              className="w-full p-2 border rounded"
-            >
-              <option value="">Vyberte podkategorii</option>
-              {subcategories.map((subcategory) => (
-                <option key={subcategory} value={subcategory}>
-                  {subcategory}
-                </option>
-              ))}
-            </select>
-          </div>
+  <div className="flex items-center justify-between mb-1">
+    <label className="text-sm font-medium">Podkategorie:</label>
+    <span className="text-sm text-gray-500">(Přesunout do jiné podkategorie)</span>
+  </div>
+  <select
+    name="subcategory"
+    value={editedService.subcategory || ''}
+    onChange={handleChange}
+    className="w-full p-2 border rounded"
+  >
+    <option value="">Vyberte podkategorii</option>
+    {subcategories.map((subcategory) => (
+      <option key={subcategory} value={subcategory}>
+        {subcategory}
+      </option>
+    ))}
+  </select>
+</div>
 
           <div className="form-section">
             <label className="block text-sm font-medium mb-1">Cena (Kč):</label>

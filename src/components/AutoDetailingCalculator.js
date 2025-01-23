@@ -56,9 +56,13 @@ const AutoDetailingCalculator = () => {
   };
 
   const handleEditPackage = (packageName, packageDetails) => {
-    setEditingPackage({ ...packageDetails, name: packageName });
+    console.log('Detail před editací:', packageDetails);
+    setEditingPackage({ 
+      ...packageDetails,
+      name: packageName,
+    });
   };
-  
+
   const handleDeletePackage = async (packageId) => {
     if (window.confirm('Opravdu chcete smazat tento balíček?')) {
       try {
@@ -88,15 +92,16 @@ const AutoDetailingCalculator = () => {
 
   const handleEditServiceSave = (groupId, updatedService) => {
     if (!groupId || !updatedService) {
-      console.error('Chybí data pro uložení:', { groupId, updatedService });
-      return;
+        console.error('Chybí data pro uložení:', { groupId, updatedService });
+        return;
     }
+    console.log('AutoDetailingCalculator - Data před updateService:', { groupId, updatedService });
     updateService(groupId, {
-      ...updatedService,
-      mainCategory: groupId
+        ...updatedService,
+        mainCategory: groupId
     });
     setEditingService(null);
-  };
+};
   
 
   const handleDeleteService = (serviceGroupId, serviceId) => {
@@ -536,7 +541,10 @@ const AutoDetailingCalculator = () => {
     services={serviceGroups}
     onClose={() => setEditingPackage(null)}
     onSave={async (updatedPackage) => {
-      await updateService('package', updatedPackage);
+      // Přidejte log před zavoláním updateService
+      console.log('Data před updateService:', updatedPackage);
+      const result = await updateService('package', updatedPackage);
+      console.log('Výsledek updateService:', result);
       setEditingPackage(null);
     }}
   />
@@ -603,96 +611,112 @@ const AutoDetailingCalculator = () => {
         </CardContent>
       </Card>
 
-      <Card className="bg-gray-50">
-  <CardContent className="pt-6">
-    <div className="space-y-4">
-      <h3 className="text-lg font-bold mb-4">Balíčky služeb</h3>
-      {packages && Object.entries(packages).map(([packageName, packageDetails], index) => (
-        <div 
-          key={`${packageName}-${index}`} 
-          className={`border rounded-lg ${selectedPackages[packageName] ? 'bg-blue-50' : ''}`}
-        >
-          <div 
-            className="flex items-center justify-between hover:bg-gray-100 p-2 cursor-pointer group"
-            onClick={() => togglePackage(packageName)}
-          >
-            <div className="flex items-center flex-1">
-              <input
-                type="checkbox"
-                checked={!!selectedPackages[packageName]}
-                onChange={(e) => {
-                  e.stopPropagation();
-                  togglePackage(packageName);
-                }}
-                className="h-4 w-4 rounded border-gray-300"
-              />
-              <span className="ml-2">{packageName}</span>
-            </div>
+      
+<Card className="bg-gray-50">
+ <CardContent className="pt-6">
+   <div className="space-y-4">
+     <h3 className="text-lg font-bold mb-4">Balíčky služeb</h3>
+     {/* Pro každý balíček vytvoříme box */}
+     {packages && Object.entries(packages).map(([packageName, packageDetails], index) => (
+       <div 
+         key={`${packageName}-${index}`} 
+         className={`border rounded-lg ${selectedPackages[packageName] ? 'bg-blue-50' : ''}`}
+       >
+         {/* Hlavička balíčku s názvem a cenou */}
+         <div 
+           className="flex items-center justify-between hover:bg-gray-100 p-2 cursor-pointer group"
+           onClick={() => togglePackage(packageName)}
+         >
+           <div className="flex items-center flex-1">
+             <input
+               type="checkbox"
+               checked={!!selectedPackages[packageName]}
+               onChange={(e) => {
+                 e.stopPropagation();
+                 togglePackage(packageName);
+               }}
+               className="h-4 w-4 rounded border-gray-300"
+             />
+             <span className="ml-2">{packageName}</span>
+           </div>
 
-            <div className="flex items-center gap-2 ml-auto">
-              <span className="font-medium whitespace-nowrap w-24 text-right">
-                {packageDetails.price?.toLocaleString()} Kč
-              </span>
-              
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setExpandedPackage(expandedPackage === packageName ? null : packageName);
-                }}
-                className="p-1 hover:bg-gray-200 rounded"
-                title="Zobrazit obsah balíčku"
-              >
-                <HelpCircle size={16} className="text-gray-600" />
-              </button>
+           <div className="flex items-center gap-2 ml-auto">
+             {/* Celková cena balíčku */}
+             <span className="font-medium whitespace-nowrap w-24 text-right">
+               {packageDetails.price?.toLocaleString()} Kč
+             </span>
+             
+             {/* Tlačítko pro zobrazení detailů */}
+             <button
+               onClick={(e) => {
+                 e.stopPropagation();
+                 setExpandedPackage(expandedPackage === packageName ? null : packageName);
+               }}
+               className="p-1 hover:bg-gray-200 rounded"
+               title="Zobrazit obsah balíčku"
+             >
+               <HelpCircle size={16} className="text-gray-600" />
+             </button>
 
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleEditPackage(packageName, packageDetails);
-                }}
-                className="p-1 hover:bg-gray-200 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <Edit2 size={16} className="text-gray-600" />
-              </button>
-            </div>
-          </div>
+             {/* Tlačítko pro editaci balíčku */}
+             <button
+               onClick={(e) => {
+                 e.stopPropagation();
+                 handleEditPackage(packageName, packageDetails);
+               }}
+               className="p-1 hover:bg-gray-200 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+             >
+               <Edit2 size={16} className="text-gray-600" />
+             </button>
+           </div>
+         </div>
 
-          {/* Detail balíčku */}
-          {expandedPackage === packageName && (
-            <div className="border-t p-3 bg-gray-50">
-              <ul className="space-y-1">
-                {packageDetails.services?.map(serviceId => {
-                  const service = findServiceById(serviceId);
-                  if (!service) return null;
-                  return (
-                    <li key={serviceId} className="flex justify-between items-center">
-                      <span>• {service.name}</span>
-                      <span className="text-gray-600 w-24 text-right">{service.price?.toLocaleString()} Kč</span>
-                    </li>
-                  );
-                })}
-              </ul>
-              <div className="mt-3 pt-2 border-t">
-                <div className="flex justify-between items-center text-blue-600 font-medium">
-                  <span>Celková hodnota služeb:</span>
-                  <span className="w-24 text-right">
-                    {packageDetails.services?.reduce((sum, serviceId) => {
-                      const service = findServiceById(serviceId);
-                      return sum + (service?.price || 0);
-                    }, 0).toLocaleString()} Kč
-                  </span>
-                </div>
-                <div className="flex justify-between items-center text-green-600 font-medium">
-                  <span>Cena balíčku:</span>
-                  <span className="w-24 text-right">{packageDetails.price?.toLocaleString()} Kč</span>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  </CardContent>
+         {/* Detail balíčku - zobrazí se po kliknutí na šipku */}
+         {expandedPackage === packageName && (
+           <div className="border-t p-3 bg-gray-50">
+             {/* Seznam služeb v balíčku */}
+             <ul className="space-y-1">
+               {packageDetails.services?.map(serviceId => {
+                 const service = findServiceById(serviceId);
+                 if (!service) return null;
+                 return (
+                   <li key={serviceId} className="flex justify-between items-center">
+                     <span>• {service.name}</span>
+                     <span className="text-gray-600 w-24 text-right">{service.price?.toLocaleString()} Kč</span>
+                   </li>
+                 );
+               })}
+             </ul>
+             {/* Výpočet a zobrazení cenového rozdílu */}
+             {(() => {
+               const totalValue = packageDetails.services?.reduce((sum, serviceId) => {
+                 const service = findServiceById(serviceId);
+                 return sum + (service?.price || 0);
+               }, 0);
+               
+               // Zobrazíme rozdíl cen pouze pokud se liší od ceny balíčku
+               if (totalValue !== packageDetails.price) {
+                 return (
+                   <div className="mt-3 pt-2 border-t">
+                     <div className="flex justify-between items-center text-blue-600 font-medium">
+                       <span>Celková hodnota služeb:</span>
+                       <span className="w-24 text-right">{totalValue?.toLocaleString()} Kč</span>
+                     </div>
+                     <div className="flex justify-between items-center text-green-600 font-medium">
+                       <span>Cena balíčku:</span>
+                       <span className="w-24 text-right">{packageDetails.price?.toLocaleString()} Kč</span>
+                     </div>
+                   </div>
+                 );
+               }
+               return null;
+             })()}
+           </div>
+         )}
+       </div>
+     ))}
+   </div>
+ </CardContent>
 </Card>
 
       <Card className="bg-gray-50">

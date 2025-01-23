@@ -9,6 +9,9 @@ import { signInUser, signOutUser, onAuthStateChangedListener } from './component
 import { FaUser, FaCalculator, FaList, FaBoxes,FaCog } from 'react-icons/fa';
 import { ServiceProvider, useServiceContext } from './components/ServiceContext';
 import AdminSettings from './components/AdminSettings';
+import { OrderingProvider } from './components/admin/OrderingContext';
+import CategoryOrderManager from './components/admin/CategoryOrderManager';
+
 
 
 const App = () => {
@@ -74,6 +77,7 @@ const App = () => {
             <Route path="/logout" element={<Logout setUser={setUser} />} />
             <Route path="/products" element={<ProductManagement />} />
             <Route path="/admin" element={<AdminSettings />} />
+            <Route path="/admin/ordering" element={<CategoryOrderManager />} />
           </Routes>
         </div>
       </ServiceProvider>

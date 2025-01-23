@@ -20,14 +20,17 @@ const EditPackageModal = ({ isOpen, onClose, package: packageData, services, onS
       alert('Cena musí být platné číslo');
       return;
     }
-
-    onSave({
-      ...packageData,
+  
+    const updatedPackage = {
+      id: packageData.id,
       name: formData.name.trim(),
       price: Number(formData.price),
       description: formData.description.trim(),
       services: Array.from(formData.selectedServices)
-    });
+    };
+    
+    console.log('Odesílaná data:', updatedPackage);
+    onSave(updatedPackage);
   };
 
   const toggleService = (serviceId) => {

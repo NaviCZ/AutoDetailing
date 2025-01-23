@@ -105,8 +105,13 @@ export const resetPassword = (email) => {
 };
 
 export const saveProductToFirebase = async (product, userEmail) => {
+  console.log('Data ukládaná do Firebase:', product);
   const productToSave = {
     ...product,
+    name: product.name,
+    price: product.price,
+    description: product.description,
+    services: product.services || [], // Přidáno
     updatedAt: serverTimestamp(),
     updatedBy: userEmail
   };
@@ -120,20 +125,14 @@ export const saveProductToFirebase = async (product, userEmail) => {
       
       if (snapshot.exists()) {
         const existingData = snapshot.val();
-        
-        // Pokud createdBy obsahuje ID místo emailu, nastavíme tam aktuální email
-        const isCreatedByUID = existingData.createdBy && existingData.createdBy.includes('Rxet4');
-        
         const updatedProduct = {
           ...productToSave,
-          createdBy: isCreatedByUID ? userEmail : existingData.createdBy || userEmail,
-          createdAt: existingData.createdAt || serverTimestamp(),
-          updatedBy: userEmail,
-          updatedAt: serverTimestamp()
+          createdBy: existingData.createdBy || userEmail,
+          createdAt: existingData.createdAt || serverTimestamp()
         };
         
         await set(productRef, updatedProduct);
-        console.log('Produkt byl úspěšně aktualizován s těmito daty:', updatedProduct);
+        console.log('Produkt byl úspěšně aktualizován:', updatedProduct);
       }
     } else {
       productToSave.createdBy = userEmail;
