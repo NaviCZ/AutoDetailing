@@ -88,16 +88,23 @@ const EditPackageModal = ({ isOpen, onClose, package: packageData, services, onS
                 <div key={category}>
                   <h3 className="font-medium">{category}</h3>
                   {categoryServices.items?.map(service => (
-                    <div key={service.id} className="ml-4 flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={formData.selectedServices.has(service.id)}
-                        onChange={() => toggleService(service.id)}
-                        className="rounded"
-                      />
-                      <span>{service.name}</span>
-                    </div>
-                  ))}
+  <div 
+    key={service.id} 
+    className="ml-4 flex items-center space-x-2 hover:bg-gray-100 cursor-pointer p-2 rounded"
+    onClick={() => toggleService(service.id)}
+  >
+    <input
+      type="checkbox"
+      checked={formData.selectedServices.has(service.id)}
+      onChange={(e) => {
+        e.stopPropagation(); // Zabrání dvojímu triggeru
+        toggleService(service.id);
+      }}
+      className="rounded"
+    />
+    <span>{service.name}</span>
+  </div>
+))}
                 </div>
               ))}
             </div>

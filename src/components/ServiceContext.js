@@ -215,25 +215,38 @@ export const ServiceProvider = ({ children }) => {
   const serviceRef = ref(database, `services/${serviceGroupId}/items/${updatedService.id}`);
   
   try {
-      // Nejdřív dostaneme původní data
-      const snapshot = await get(serviceRef);
-      const originalData = snapshot.exists() ? snapshot.val() : {};
-      
-      // Zachováme všechny vlastnosti a přidáme/aktualizujeme nové
-      const serviceToSave = {
-          ...originalData,
-          ...updatedService,
-          hasVariants: updatedService.hasVariants,
-          variants: updatedService.variants || []  // Ujistěte se, že varianty jsou přítomny
+    if (serviceGroupId === 'package') {
+      // Speciální zacházení s balíčky
+      const packageData = {
+        id: updatedService.id,
+        name: updatedService.name,
+        price: updatedService.price,
+        services: updatedService.services || [],
+        description: updatedService.description || ''
       };
       
-      console.log('ServiceContext - Data k uložení:', serviceToSave);
+      console.log('Ukládám balíček:', packageData);
+      await set(serviceRef, packageData);
+      
+      // Aktualizace lokálního stavu
+      setPackages(prev => ({
+        ...prev,
+        [packageData.name]: packageData
+      }));
+    } else {
+      // Původní logika pro služby
+      const snapshot = await get(serviceRef);
+      const originalData = snapshot.exists() ? snapshot.val() : {};
+      const serviceToSave = {
+        ...originalData,
+        ...updatedService
+      };
       await set(serviceRef, serviceToSave);
-      console.log('ServiceContext - Data úspěšně uložena');
-      return true;
+    }
+    return true;
   } catch (err) {
-      console.error('Chyba při ukládání:', err);
-      throw err;
+    console.error('Chyba při ukládání:', err);
+    throw err;
   }
 };
 
