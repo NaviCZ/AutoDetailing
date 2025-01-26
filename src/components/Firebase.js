@@ -104,6 +104,49 @@ export const resetPassword = (email) => {
   return sendPasswordResetEmail(auth, email);
 };
 
+// Funkce pro ukládání úkolů ke službě
+export const saveServiceTasks = async (serviceId, tasks) => {
+  try {
+    const database = getDatabase();
+    const tasksRef = ref(database, `serviceTasks/${serviceId}`);
+    await set(tasksRef, tasks);
+    return true;
+  } catch (error) {
+    console.error('Chyba při ukládání úkolů:', error);
+    return false;
+  }
+};
+
+// Funkce pro načtení úkolů služby
+export const getServiceTasks = async (serviceId) => {
+  try {
+    const database = getDatabase();
+    const tasksRef = ref(database, `serviceTasks/${serviceId}`);
+    const snapshot = await get(tasksRef);
+    if (snapshot.exists()) {
+      return snapshot.val();
+    }
+    return [];
+  } catch (error) {
+    console.error('Chyba při načítání úkolů:', error);
+    return [];
+  }
+};
+
+// Funkce pro úpravu záznamu s dokončenými úkoly
+export const updateRecordTasks = async (recordId, completedTasks) => {
+  try {
+    const database = getDatabase();
+    const tasksRef = ref(database, `records/${recordId}/completedTasks`);
+    await set(tasksRef, completedTasks);
+    return true;
+  } catch (error) {
+    console.error('Chyba při ukládání dokončených úkolů:', error);
+    return false;
+  }
+};
+
+
 export const saveProductToFirebase = async (product, userEmail) => {
   console.log('Data ukládaná do Firebase:', product);
   const productToSave = {

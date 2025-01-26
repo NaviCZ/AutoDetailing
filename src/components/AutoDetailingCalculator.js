@@ -16,6 +16,7 @@ import GitHubUpdates from './GitHubUpdates';
 import SavedRecordsModal from './SavedRecordsModal';
 import AddServiceModal from './AddServiceModal';
 import EditPackageModal from './EditPackageModal';
+import ToDoList from './ToDoList';
 
 
 const CAR_SIZE_MARKUP = 0.3; // 30% příplatek pro XL vozy
@@ -50,6 +51,8 @@ const AutoDetailingCalculator = () => {
 
   const [selectedVariants, setSelectedVariants] = useState({});
   const [error, setError] = useState(null);
+  
+  const [currentRecordId, setCurrentRecordId] = useState(null);
 
   const handleAddService = () => {
     setIsAddModalOpen(true);
@@ -349,6 +352,8 @@ const AutoDetailingCalculator = () => {
   };
 
   useEffect(() => {
+    console.log('Current Record ID:', currentRecordId);
+    console.log('selectedServices:', selectedServices);
     updatePrices();
   }, [selectedServices, selectedVariants, discount, carSize, serviceHours, additionalCharges, selectedPackages]);
 
@@ -423,6 +428,7 @@ const AutoDetailingCalculator = () => {
 
   const saveRecord = async () => {
     const recordToSave = {
+      id: Date.now().toString(), // Přidáme ID
       customerName,
       customerPhone,
       vehicleNotes,
@@ -443,17 +449,31 @@ const AutoDetailingCalculator = () => {
           }
         ])
       ),
+      completedTasks: [],
       timestamp: new Date().toISOString(),
       userEmail: userEmail
     };
     
-    const success = await saveRecordToFirebase(recordToSave);
-    if (success) {
-      alert('Záznam byl úspěšně uložen');
-    } else {
+    try {
+      console.log('Ukládám záznam:', recordToSave);
+      const newRecordId = await saveRecordToFirebase(recordToSave);
+      console.log('Získané ID:', newRecordId);
+      
+      if (newRecordId) {
+        setCurrentRecordId(newRecordId);
+        alert('Záznam byl úspěšně uložen');
+      } else {
+        alert('Při ukládání záznamu došlo k chybě');
+      }
+    } catch (error) {
+      console.error('Chyba při ukládání:', error);
       alert('Při ukládání záznamu došlo k chybě');
     }
   };
+    
+    
+
+ 
 
   const loadRecord = (record) => {
     setCustomerName(record.customerName);
@@ -549,6 +569,14 @@ const AutoDetailingCalculator = () => {
     }}
   />
 )}
+      <Card>
+  <CardContent className="pt-6">
+    <ToDoList 
+      selectedServices={selectedServices} 
+      recordId={currentRecordId} // Přidat tento state
+    />
+  </CardContent>
+</Card>
       <Card>
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

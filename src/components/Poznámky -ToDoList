@@ -1,9 +1,9 @@
 1. Při načtění Správa pořadí kategorií a služeb v administraci převzít správné pozice jako je AutoDetailingCalculator.js
------------------------------------------------------------------------------------------------------------------------------------------
+
 2. Při stejné ceně balíčku jako je Celková hodnota služeb tak zobrazit jen cenu balíčku(Je zbytečné zobrazovat i Celková hodnota služeb:)
+-----------------------------------------------------------------------------------------------------------------------------------------
 3. ToDoList podle vybraných služeb (Tedy co vše přesně se má udělat aby se na něco nazapomnělo - Jako třeba při luxovaní nezapomenout v kufru vyndat podlážku,
 ve dveřích gumy atd.. opět by to mělo jít boxem zatrhnout že se to udělalo) Mělo by to být napojeno na nějaou vybranou službu. A též by se to mělo ukládat do DB.
 Taky všechny ty věci co se udělali na voze (zatrhnout) by se měli ukládat společně do Uložené záznamy.
 Prostě by to měl být takový průvodce procesem bybraných služeb a možná i možnost napojení na Správa produktů, aby se vědělo co třeba použít.
 
-Odstranit možnost varinat...
