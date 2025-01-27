@@ -1,4 +1,5 @@
 // App.js
+import Footer from './components/Footer';
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
 import AutoDetailingCalculator from './components/AutoDetailingCalculator';
@@ -80,6 +81,7 @@ const App = () => {
             <Route path="/admin/ordering" element={<CategoryOrderManager />} />
           </Routes>
         </div>
+        <Footer />
       </ServiceProvider>
     </Router>
   );

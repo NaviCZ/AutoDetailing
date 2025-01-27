@@ -29,52 +29,66 @@ export const ServiceProvider = ({ children }) => {
 
    // Funkce pro seřazení služeb podle pořadí
    const sortServicesByOrder = (items, category, orderData) => {
-     return items.sort((a, b) => {
-       const subcatOrderA = orderData.categories?.[category]?.[a.subcategory] ?? 999;
-       const subcatOrderB = orderData.categories?.[category]?.[b.subcategory] ?? 999;
-       
-       if (subcatOrderA !== subcatOrderB) {
-         return subcatOrderA - subcatOrderB;
-       }
-
-       const serviceOrderA = orderData.services?.[category]?.[a.subcategory]?.[a.id] ?? 999;
-       const serviceOrderB = orderData.services?.[category]?.[b.subcategory]?.[b.id] ?? 999;
-       return serviceOrderA - serviceOrderB;
-     });
-   };
+    // Nejprve seskupíme položky podle podkategorií
+    const groupedItems = items.reduce((acc, item) => {
+      const subcategory = item.subcategory || 'default';
+      if (!acc[subcategory]) {
+        acc[subcategory] = [];
+      }
+      acc[subcategory].push(item);
+      return acc;
+    }, {});
+  
+    // Seřadíme každou podkategorii podle pořadí služeb
+    Object.keys(groupedItems).forEach(subcategory => {
+      groupedItems[subcategory].sort((a, b) => {
+        const orderA = orderData.services?.[category]?.[subcategory]?.[a.id] ?? Number.MAX_SAFE_INTEGER;
+        const orderB = orderData.services?.[category]?.[subcategory]?.[b.id] ?? Number.MAX_SAFE_INTEGER;
+        return orderA - orderB;
+      });
+    });
+  
+    // Seřadíme podkategorie podle jejich pořadí a spojíme položky
+    const subcategoryOrder = orderData.categories?.[category] || {};
+    return Object.entries(groupedItems)
+      .sort(([subcatA], [subcatB]) => {
+        const orderA = subcategoryOrder[subcatA] ?? Number.MAX_SAFE_INTEGER;
+        const orderB = subcategoryOrder[subcatB] ?? Number.MAX_SAFE_INTEGER;
+        return orderA - orderB;
+      })
+      .flatMap(([_, items]) => items);
+  };
 
    // Listener pro změny v pořadí
    const orderUnsubscribe = onValue(orderRef, (snapshot) => {
-     const orderData = snapshot.exists() ? snapshot.val() : { categories: {}, services: {} };
-     setSubcategoryOrder(orderData);
-     
-     // Okamžité přeuspořádání existujících dat
-     setServiceGroups(prevGroups => {
-       const newGroups = {};
-       Object.entries(prevGroups).forEach(([category, data]) => {
-         if (data?.items) {
-           const sortedItems = sortServicesByOrder([...data.items], category, orderData);
-           newGroups[category] = { items: sortedItems };
-         }
-       });
-       return newGroups;
-     });
+  const orderData = snapshot.exists() ? snapshot.val() : { categories: {}, services: {} };
+  setSubcategoryOrder(orderData);
+  
+  // Okamžitá aktualizace seřazení všech dat
+  setServiceGroups(prevGroups => {
+    const newGroups = {};
+    Object.entries(prevGroups).forEach(([category, data]) => {
+      if (data?.items) {
+        newGroups[category] = {
+          ...data,
+          items: sortServicesByOrder([...data.items], category, orderData)
+        };
+      }
+    });
+    return newGroups;
+  });
 
-     // Přeuspořádání balíčků
-     setPackages(prevPackages => {
-       const sortedPackages = {};
-       const packagesArray = Object.entries(prevPackages);
-       packagesArray.sort(([aName], [bName]) => {
-         const orderA = orderData.categories?.package?.[aName] ?? 999;
-         const orderB = orderData.categories?.package?.[bName] ?? 999;
-         return orderA - orderB;
-       });
-       packagesArray.forEach(([name, data]) => {
-         sortedPackages[name] = data;
-       });
-       return sortedPackages;
-     });
-   });
+  // Seřazení balíčků
+  setPackages(prevPackages => {
+    const packageEntries = Object.entries(prevPackages);
+    packageEntries.sort(([nameA], [nameB]) => {
+      const orderA = orderData.categories?.package?.[nameA] ?? Number.MAX_SAFE_INTEGER;
+      const orderB = orderData.categories?.package?.[nameB] ?? Number.MAX_SAFE_INTEGER;
+      return orderA - orderB;
+    });
+    return Object.fromEntries(packageEntries);
+  });
+});
 
    // Listener pro služby
    const servicesUnsubscribe = onValue(servicesRef, (snapshot) => {
@@ -210,44 +224,30 @@ export const ServiceProvider = ({ children }) => {
    }
  };
 
- const updateService = async (serviceGroupId, updatedService) => {
-  const database = getDatabase();
-  const serviceRef = ref(database, `services/${serviceGroupId}/items/${updatedService.id}`);
-  
-  try {
-    if (serviceGroupId === 'package') {
-      // Speciální zacházení s balíčky
-      const packageData = {
-        id: updatedService.id,
-        name: updatedService.name,
-        price: updatedService.price,
-        services: updatedService.services || [],
-        description: updatedService.description || ''
-      };
-      
-      console.log('Ukládám balíček:', packageData);
-      await set(serviceRef, packageData);
-      
-      // Aktualizace lokálního stavu
-      setPackages(prev => ({
-        ...prev,
-        [packageData.name]: packageData
-      }));
-    } else {
-      // Původní logika pro služby
-      const snapshot = await get(serviceRef);
-      const originalData = snapshot.exists() ? snapshot.val() : {};
-      const serviceToSave = {
-        ...originalData,
-        ...updatedService
-      };
-      await set(serviceRef, serviceToSave);
+const updateService = async (serviceGroupId, updatedService) => {
+    const database = getDatabase();
+    const serviceRef = ref(database, `services/${serviceGroupId}/items/${updatedService.id}`);
+    
+    try {
+        // Nejdřív dostaneme původní data
+        const snapshot = await get(serviceRef);
+        const originalData = snapshot.exists() ? snapshot.val() : {};
+        
+        // Zachováme všechny vlastnosti a přidáme/aktualizujeme nové
+        const serviceToSave = {
+            ...originalData,
+            ...updatedService,
+            hasVariants: updatedService.hasVariants,
+            variants: updatedService.variants || []
+        };
+        
+        console.log('ServiceContext - Data k uložení:', serviceToSave);
+        await set(serviceRef, serviceToSave);
+        return true;
+    } catch (err) {
+        console.error('Chyba při ukládání:', err);
+        throw err;
     }
-    return true;
-  } catch (err) {
-    console.error('Chyba při ukládání:', err);
-    throw err;
-  }
 };
 
 

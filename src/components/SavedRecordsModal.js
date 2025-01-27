@@ -1,42 +1,63 @@
+// SavedRecordsModal.js
 import React, { useState, useEffect } from 'react';
 import { List } from 'lucide-react';
 import { getRecordsFromFirebase, deleteRecordFromFirebase } from './Firebase';
+import { getDatabase, ref, onValue } from 'firebase/database';
 
 const SavedRecordsModal = ({ onClose, onLoadRecord }) => {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadRecords = async () => {
-      const fetchedRecords = await getRecordsFromFirebase();
-      // Normalize the selectedPackages data structure
-      const normalizedRecords = fetchedRecords.map(record => ({
-        ...record,
-        selectedPackages: record.selectedPackages || {},
-      }));
-      setRecords(normalizedRecords);
+    const database = getDatabase();
+    const recordsRef = ref(database, 'records');
+
+    const unsubscribe = onValue(recordsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const fetchedRecords = [];
+        snapshot.forEach((childSnapshot) => {
+          const record = {
+            id: childSnapshot.key,
+            ...childSnapshot.val(),
+            selectedPackages: childSnapshot.val().selectedPackages || {},
+          };
+          fetchedRecords.push(record);
+        });
+        setRecords(fetchedRecords);
+      } else {
+        setRecords([]);
+      }
       setLoading(false);
-    };
-    loadRecords();
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const deleteRecord = async (recordId) => {
-    const success = await deleteRecordFromFirebase(recordId);
-    if (success) {
-      setRecords(records.filter(record => record.id !== recordId));
-    } else {
-      alert('Při mazání záznamu došlo k chybě');
+    if (window.confirm('Opravdu chcete smazat tento záznam?')) {
+      try {
+        console.log('Mažu záznam s ID:', recordId);
+        const success = await deleteRecordFromFirebase(recordId);
+        
+        if (!success) {
+          console.error('Nepodařilo se smazat záznam');
+          alert('Při mazání záznamu došlo k chybě');
+        }
+      } catch (error) {
+        console.error('Chyba při mazání záznamu:', error);
+        alert('Při mazání záznamu došlo k chybě');
+      }
     }
   };
 
   const handleLoadRecord = (record) => {
-    // Ensure the selectedPackages structure is correct
     const normalizedRecord = {
       ...record,
       selectedPackages: record.selectedPackages || {},
       selectedServices: new Set(record.selectedServices || [])
     };
     onLoadRecord(normalizedRecord);
+    onClose(); // Přidáno zavření modalu po načtení záznamu
   };
 
   if (loading) {
@@ -76,19 +97,18 @@ const SavedRecordsModal = ({ onClose, onLoadRecord }) => {
                   {record.vehicleNotes && (
                     <p className="text-gray-700">{record.vehicleNotes}</p>
                   )}
-                
                   <p className="text-gray-700">Uložil: {record.userEmail}</p>
                 </div>
                 <div className="flex space-x-2">
                   <button
                     onClick={() => handleLoadRecord(record)}
-                    className="bg-blue-500 text-white px-3 py-1 rounded"
+                    className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
                   >
                     Načíst
                   </button>
                   <button
                     onClick={() => deleteRecord(record.id)}
-                    className="bg-red-500 text-white px-3 py-1 rounded"
+                    className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
                   >
                     Smazat
                   </button>

@@ -1,43 +1,21 @@
-
-// CategoryOrder.js - Komponenta pro správu pořadí kategorií, podkategorií a služeb
+// CategoryOrder.js
 import React, { useState, useEffect } from 'react';
 import { getDatabase, ref, get } from 'firebase/database';
 import { useServiceContext } from '../ServiceContext';
 import { Button } from '../ui/Button';
 
 const CategoryOrder = () => {
-  // ====== Načtení kontextu a inicializace stavů ======
   const { serviceGroups, packages, updateSubcategoryOrder } = useServiceContext();
-
-   // State pro rozbalené kategorie
-   const [expandedCategories, setExpandedCategories] = useState(new Set());
-  
-  // State pro podkategorie a jejich služby
+  const [expandedCategories, setExpandedCategories] = useState(new Set());
   const [subcategories, setSubcategories] = useState({
     interior: [],
     exterior: [],
     package: []
   });
-
-  // State pro UI stavy
   const [isLoading, setIsLoading] = useState(false);
   const [movedItem, setMovedItem] = useState(null);
   const [expandedSubcategories, setExpandedSubcategories] = useState(new Set());
 
-  // Funkce pro přepínání kategorie
-  const toggleCategory = (category) => {
-    setExpandedCategories(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(category)) {
-        newSet.delete(category);
-      } else {
-        newSet.add(category);
-      }
-      return newSet;
-    });
-  };
-
-  // ====== Načtení dat při inicializaci ======
   useEffect(() => {
     if (serviceGroups && packages) {
       const uniqueSubcategories = {
@@ -85,9 +63,24 @@ const CategoryOrder = () => {
         if (packages) {
           uniqueSubcategories.package = Object.entries(packages)
             .map(([name, data]) => ({
-              id: data.id,
+              id: data.id || name,
               name: name,
-              order: existingOrder.categories?.package?.[name] ?? Number.MAX_SAFE_INTEGER
+              order: existingOrder.categories?.package?.[name] ?? Number.MAX_SAFE_INTEGER,
+              items: data.services?.map(serviceId => {
+                let serviceDetails = null;
+                Object.values(serviceGroups).forEach(group => {
+                  if (group.items) {
+                    const found = group.items.find(item => item.id === serviceId);
+                    if (found) serviceDetails = found;
+                  }
+                });
+                return serviceDetails ? {
+                  id: serviceId,
+                  name: serviceDetails.name,
+                  price: serviceDetails.price,
+                  originalCategory: serviceDetails.mainCategory
+                } : null;
+              }).filter(item => item !== null) || []
             }))
             .sort((a, b) => a.order - b.order);
         }
@@ -99,7 +92,18 @@ const CategoryOrder = () => {
     }
   }, [serviceGroups, packages]);
 
-  // ====== Handler pro rozbalování podkategorií ======
+  const toggleCategory = (category) => {
+    setExpandedCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(category)) {
+        newSet.delete(category);
+      } else {
+        newSet.add(category);
+      }
+      return newSet;
+    });
+  };
+
   const toggleSubcategory = (subcategoryName) => {
     setExpandedSubcategories(prev => {
       const newSet = new Set(prev);
@@ -112,7 +116,6 @@ const CategoryOrder = () => {
     });
   };
 
-  // ====== Funkce pro přesun podkategorií ======
   const moveItem = (category, fromIndex, direction) => {
     const newItems = [...subcategories[category]];
     const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
@@ -121,13 +124,11 @@ const CategoryOrder = () => {
       [newItems[fromIndex], newItems[toIndex]] = [newItems[toIndex], newItems[fromIndex]];
       setSubcategories({...subcategories, [category]: newItems});
       
-      // Vizuální feedback
       setMovedItem(newItems[toIndex].name);
       setTimeout(() => setMovedItem(null), 1000);
     }
   };
 
-  // ====== Funkce pro přesun služeb v podkategorii ======
   const moveService = (category, subcategory, fromIndex, direction) => {
     const newSubcategories = { ...subcategories };
     const targetSubcat = newSubcategories[category].find(s => s.name === subcategory);
@@ -142,14 +143,12 @@ const CategoryOrder = () => {
         
         setSubcategories(newSubcategories);
         
-        // Vizuální feedback
         setMovedItem(newItems[toIndex].id);
         setTimeout(() => setMovedItem(null), 1000);
       }
     }
   };
 
-  // ====== Funkce pro uložení změn ======
   const handleSave = async () => {
     setIsLoading(true);
     try {
@@ -157,16 +156,13 @@ const CategoryOrder = () => {
         categories: {},
         services: {}
       };
-
-      // Vytvoření struktury pro uložení
+  
       Object.entries(subcategories).forEach(([category, items]) => {
-        // Pořadí kategorií
         orderData.categories[category] = {};
         items.forEach((item, index) => {
           orderData.categories[category][item.name] = index;
         });
-
-        // Pořadí služeb v kategoriích
+  
         if (items.some(item => item.items)) {
           orderData.services[category] = {};
           items.forEach(item => {
@@ -179,8 +175,12 @@ const CategoryOrder = () => {
           });
         }
       });
-
+  
       await updateSubcategoryOrder(orderData);
+      
+      // Force reload data
+      window.location.reload();
+      
       alert('Pořadí bylo úspěšně uloženo');
     } catch (error) {
       console.error('Chyba při ukládání pořadí:', error);
@@ -189,12 +189,10 @@ const CategoryOrder = () => {
     setIsLoading(false);
   };
 
-  // ====== Render komponenty ======
   return (
     <div className="space-y-8">
       {Object.entries(subcategories).map(([category, items]) => (
         <div key={category} className="mb-6">
-          {/* Hlavní kategorie s možností rozbalení */}
           <div 
             onClick={() => toggleCategory(category)}
             className="flex items-center gap-2 p-3 rounded-lg border bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors duration-200"
@@ -209,12 +207,10 @@ const CategoryOrder = () => {
             </h3>
           </div>
           
-          {/* Obsah kategorie - zobrazí se jen když je rozbalená */}
           {expandedCategories.has(category) && (
             <div className="mt-2 space-y-2 pl-4">
               {items.map((item, index) => (
                 <div key={item.name} className="space-y-2">
-                  {/* Podkategorie s možností rozbalení */}
                   <div 
                     className={`flex items-center gap-2 p-3 rounded-lg border transition-all duration-300 cursor-pointer
                       ${movedItem === item.name 
@@ -222,14 +218,19 @@ const CategoryOrder = () => {
                         : 'bg-white hover:bg-gray-50'}`}
                     onClick={() => toggleSubcategory(item.name)}
                   >
-                    {/* Indikátor rozbalení podkategorie */}
                     <span className="text-gray-500 transition-transform duration-200">
                       {expandedSubcategories.has(item.name) ? '▼' : '▶'}
                     </span>
                     
-                    <span className="flex-grow font-medium">{item.name}</span>
+                    <span className="flex-grow font-medium">
+                      {item.name}
+                      {category === 'package' && packages[item.name]?.price && (
+                        <span className="ml-2 text-sm text-gray-500">
+                          ({packages[item.name].price.toLocaleString()} Kč)
+                        </span>
+                      )}
+                    </span>
                     
-                    {/* Tlačítka pro přesun - stopPropagation zabrání rozbalení při kliknutí */}
                     <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                       <button 
                         onClick={() => moveItem(category, index, 'up')}
@@ -243,8 +244,7 @@ const CategoryOrder = () => {
                       >↓</button>
                     </div>
                   </div>
-   
-                  {/* Seznam služeb - zobrazí se jen když je podkategorie rozbalená */}
+
                   {item.items && expandedSubcategories.has(item.name) && (
                     <div className="ml-6 space-y-1">
                       {item.items.map((service, serviceIndex) => (
@@ -255,7 +255,14 @@ const CategoryOrder = () => {
                               ? 'bg-blue-50 border-blue-200' 
                               : 'bg-white hover:bg-gray-50'}`}
                         >
-                          <span className="flex-grow text-sm">{service.name}</span>
+                          <span className="flex-grow text-sm">
+                            {service.name}
+                            {category === 'package' && service.price && (
+                              <span className="text-sm text-gray-500 ml-2">
+                                ({service.price.toLocaleString()} Kč)
+                              </span>
+                            )}
+                          </span>
                           <button 
                             onClick={() => moveService(category, item.name, serviceIndex, 'up')}
                             disabled={serviceIndex === 0}
@@ -285,7 +292,7 @@ const CategoryOrder = () => {
         {isLoading ? 'Ukládání...' : 'Uložit pořadí'}
       </Button>
     </div>
-   );
+  );
 };
 
 export default CategoryOrder;

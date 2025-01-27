@@ -17,6 +17,7 @@ import SavedRecordsModal from './SavedRecordsModal';
 import AddServiceModal from './AddServiceModal';
 import EditPackageModal from './EditPackageModal';
 import ToDoList from './ToDoList';
+import CarSizeSelector from './CarSizeSelector';
 
 
 const CAR_SIZE_MARKUP = 0.3; // 30% příplatek pro XL vozy
@@ -617,19 +618,12 @@ const AutoDetailingCalculator = () => {
       <Card>
         <CardContent className="pt-6">
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Velikost vozu</label>
-                <select
-                  value={carSize}
-                  onChange={(e) => setCarSize(e.target.value)}
-                  className="w-full p-2 border rounded bg-white"
-                >
-                  <option value="M">M - Střední vozy</option>
-                  <option value="XL">XL - SUV/Dodávky</option>
-                </select>
-              </div>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <CarSizeSelector
+    value={carSize}
+    onChange={setCarSize}
+  />
+</div>
 
             <div className="space-y-6">
               {renderServiceGroup('interior', serviceGroups?.interior)}

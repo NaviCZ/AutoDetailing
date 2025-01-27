@@ -51,15 +51,29 @@ export const signOutUser = async () => {
 // Funkce pro ukládání záznamu do Firebase
 export const saveRecordToFirebase = async (record) => {
   try {
-    console.log('Saving record:', record); // Přidejte tento řádek
+    console.log('Ukládám záznam:', record);
     const recordsRef = ref(database, 'records');
-    await push(recordsRef, record);
-    return true;
+    
+    // Vytvoříme nový záznam a získáme jeho klíč
+    const newRecordRef = push(recordsRef);
+    const recordId = newRecordRef.key;
+    
+    // Přidáme ID do dat záznamu
+    const recordWithId = {
+      ...record,
+      id: recordId // Přidáme ID do samotných dat
+    };
+    
+    // Uložíme záznam s ID
+    await set(newRecordRef, recordWithId);
+    console.log('Záznam úspěšně uložen s ID:', recordId);
+    
+    return recordId;
   } catch (error) {
     console.error('Chyba při ukládání záznamu:', error);
-    return false;
+    return null;
   }
-};
+}
 
 // Funkce pro načtení záznamů z Firebase
 export const getRecordsFromFirebase = async () => {
@@ -86,11 +100,39 @@ export const getRecordsFromFirebase = async () => {
 // Funkce pro smazání záznamu z Firebase
 export const deleteRecordFromFirebase = async (recordId) => {
   try {
-    const recordRef = ref(database, `records/${recordId}`);
-    await remove(recordRef);
-    return true;
+    console.log('Pokus o smazání záznamu s ID:', recordId);
+    
+    // Nejprve načteme všechny záznamy abychom našli správnou cestu
+    const recordsRef = ref(database, 'records');
+    const snapshot = await get(recordsRef);
+    
+    if (snapshot.exists()) {
+      // Projdeme všechny záznamy a hledáme ten správný
+      let found = false;
+      snapshot.forEach((childSnapshot) => {
+        const record = childSnapshot.val();
+        // Kontrola ID záznamu nebo timestamp (záleží na tom, co používáte jako identifikátor)
+        if (childSnapshot.key === recordId || record.id === recordId) {
+          found = true;
+          // Smažeme záznam pomocí klíče uzlu
+          const specificRecordRef = ref(database, `records/${childSnapshot.key}`);
+          remove(specificRecordRef);
+          console.log('Záznam byl úspěšně smazán, klíč:', childSnapshot.key);
+        }
+      });
+      
+      if (!found) {
+        console.error('Záznam nebyl nalezen v databázi:', recordId);
+        return false;
+      }
+      
+      return true;
+    } else {
+      console.error('Žádné záznamy v databázi');
+      return false;
+    }
   } catch (error) {
-    console.error('Chyba při mazání záznamu:', error);
+    console.error('Chyba při mazání záznamu:', error.message);
     return false;
   }
 };

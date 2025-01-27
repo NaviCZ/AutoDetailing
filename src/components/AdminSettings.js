@@ -13,7 +13,6 @@ const AdminSettings = () => {
   const [categoryOrder, setCategoryOrder] = useState({});
   const [subcategoryOrder, setSubcategoryOrder] = useState({});
 
-  // Načtení existujících nastavení
   useEffect(() => {
     if (settings) {
       setCarSizeMarkup(settings.carSizeMarkup * 100 || 30);
@@ -42,30 +41,13 @@ const AdminSettings = () => {
     setIsLoading(false);
   };
 
-  const onDragEnd = (result) => {
-    if (!result.destination) return;
-
-    const items = Array.from(Object.entries(categoryOrder));
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
-
-    const newOrder = {};
-    items.forEach(([category], index) => {
-      newOrder[category] = index + 1;
-    });
-
-    setCategoryOrder(newOrder);
-  };
-
   return (
     <div className="container mx-auto p-8">
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Administrace</h1>
       
-      {/* Obecná nastavení */}
       <Card className="mb-8">
         <CardContent className="space-y-6">
           <h2 className="text-xl font-semibold">Obecná nastavení</h2>
-          
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">
               Příplatek za velikost vozu (XL)
@@ -82,7 +64,6 @@ const AdminSettings = () => {
               <span>%</span>
             </div>
           </div>
-   
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">
               Rok ceníku
@@ -96,7 +77,6 @@ const AdminSettings = () => {
               max="2100"
             />
           </div>
-   
           <Button 
             onClick={handleSave}
             disabled={isLoading}
@@ -107,10 +87,9 @@ const AdminSettings = () => {
         </CardContent>
       </Card>
    
-      {/* Správa pořadí */}
       <Card>
         <CardContent>
-          <h2 className="text-xl font-semibold mb-6">Správa pořadí kategorií a služeb</h2>
+          <h2 className="text-xl font-semibold mb-6">Správa pořadí kategorií, služeb a balíčků</h2>
           <CategoryOrder />
         </CardContent>
       </Card>
