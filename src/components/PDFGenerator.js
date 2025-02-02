@@ -407,9 +407,9 @@ const PDFGenerator = ({
         </p>
 
         <div style="font-size: 10px; color:rgb(178, 182, 187); margin-top: 16px;">
-        Developed by  Ivan Vondráček • vondracek.github.io
+        Developed by  Ivan Vondráček • vondracek-ivan.github.io
          </div>
-         
+
         </div>
       </div>
       </body>
