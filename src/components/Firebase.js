@@ -257,15 +257,32 @@ export const getProductsFromFirebase = async () => {
 
 export const deleteProductFromFirebase = async (productId) => {
   try {
-    console.log('Pokus o smazání produktu s ID:', productId);
-    const productRef = ref(database, `products/${productId}`);
-    console.log('Cesta k produktu:', productRef.toString());
-    await remove(productRef);
-    console.log('Produkt byl úspěšně smazán z databáze!!!');
-    return true;
+    console.log('Začátek mazání produktu s ID:', productId);
+    const database = getDatabase();
+    // Opravená cesta k balíčkům
+    const productRef = ref(database, `services/package/items/${productId}`);
+    console.log('Reference produktu:', productRef.toString());
+    
+    // Nejprve zkontrolujeme, jestli produkt existuje
+    const snapshot = await get(productRef);
+    console.log('Existuje produkt?', snapshot.exists());
+    
+    if (snapshot.exists()) {
+      console.log('Data produktu před smazáním:', snapshot.val());
+      await remove(productRef);
+      
+      // Ověření smazání
+      const checkSnapshot = await get(productRef);
+      console.log('Byl produkt smazán?', !checkSnapshot.exists());
+      
+      return !checkSnapshot.exists();
+    } else {
+      console.error('Produkt nebyl nalezen v databázi:', productId);
+      return false;
+    }
   } catch (error) {
     console.error('Chyba při mazání produktu:', error);
-    return false;
+    throw error;
   }
 };
 

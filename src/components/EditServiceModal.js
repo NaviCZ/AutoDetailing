@@ -4,8 +4,9 @@ import { useServiceContext } from './ServiceContext';
 import Modal from './ui/Modal';
 import Button from './ui/Button';
 import { getProductsFromFirebase } from './Firebase';
+import { createUpdateNotification, trackServiceChanges } from '../utils/notifications';  
 
-const EditServiceModal = ({ isOpen, service, onClose, onSave, onDelete }) => {
+const EditServiceModal = ({ isOpen, service, onClose, onSave, onDelete, user }) => { // Přidán user prop
  const { serviceGroups } = useServiceContext();
  const [editedService, setEditedService] = useState(null);
  const [subcategories, setSubcategories] = useState([]);
@@ -60,33 +61,47 @@ const EditServiceModal = ({ isOpen, service, onClose, onSave, onDelete }) => {
    }));
  };
 
- const handleSave = () => {
-   if (!editedService.name?.trim()) {
-     alert('Název služby je povinný');
-     return;
-   }
-   if (!editedService.price || isNaN(editedService.price)) {
-     alert('Cena musí být platné číslo');
-     return;
-   }
+ const handleSave = async () => {
+    if (!editedService.name?.trim()) {
+      alert('Název služby je povinný');
+      return;
+    }
+    if (!editedService.price || isNaN(editedService.price)) {
+      alert('Cena musí být platné číslo');
+      return;
+    }
  
-   const serviceToSave = {
-     ...editedService,
-     id: editedService.id,
-     mainCategory: editedService.mainCategory,
-     name: editedService.name.trim(),
-     price: Number(editedService.price),
-     subcategory: editedService.subcategory || '',
-     hourly: Boolean(editedService.hourly),
-     hasVariants: editedService.hasVariants,
-     variants: editedService.variants,
-     isPackage: Boolean(editedService.isPackage),
-     tasks: tasks
-   };
- 
-   console.log('Data k uložení:', serviceToSave);
-   onSave(serviceToSave);
- };
+    const serviceToSave = {
+        ...editedService,
+        id: editedService.id,
+        mainCategory: editedService.mainCategory,
+        name: editedService.name.trim(),
+        price: Number(editedService.price),
+        subcategory: editedService.subcategory || '',
+        hourly: Boolean(editedService.hourly),
+        hasVariants: editedService.hasVariants,
+        variants: editedService.variants,
+        isPackage: Boolean(editedService.isPackage),
+        tasks: tasks
+      };
+
+      console.log('Data k uložení:', serviceToSave);
+      await onSave(serviceToSave);
+    
+      const notification = trackServiceChanges(service, serviceToSave);
+    if (notification) {
+      await createUpdateNotification(
+        `Upravena služba ${serviceToSave.name}`, 
+        {
+          message: notification.changes.message,
+          details: notification.changes.details
+        },
+        user  // Předáváme user objekt do createUpdateNotification
+      );
+    }
+    
+    onClose();
+  };
 
  return (
    <Modal isOpen={isOpen} onClose={onClose}>

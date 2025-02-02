@@ -1,4 +1,3 @@
-// CategoryOrder.js
 import React, { useState, useEffect } from 'react';
 import { getDatabase, ref, get } from 'firebase/database';
 import { useServiceContext } from '../ServiceContext';
@@ -59,14 +58,14 @@ const CategoryOrder = () => {
           }
         });
 
-        // Zpracování balíčků
+        // Zpracování balíčků s ohledem na existující pořadí
         if (packages) {
           uniqueSubcategories.package = Object.entries(packages)
             .map(([name, data]) => ({
               id: data.id || name,
               name: name,
               order: existingOrder.categories?.package?.[name] ?? Number.MAX_SAFE_INTEGER,
-              items: data.services?.map(serviceId => {
+              items: (data.services || []).map(serviceId => {
                 let serviceDetails = null;
                 Object.values(serviceGroups).forEach(group => {
                   if (group.items) {
@@ -78,9 +77,12 @@ const CategoryOrder = () => {
                   id: serviceId,
                   name: serviceDetails.name,
                   price: serviceDetails.price,
-                  originalCategory: serviceDetails.mainCategory
+                  originalCategory: serviceDetails.mainCategory,
+                  order: existingOrder.services?.package?.[name]?.[serviceId] ?? Number.MAX_SAFE_INTEGER
                 } : null;
-              }).filter(item => item !== null) || []
+              })
+              .filter(item => item !== null)
+              .sort((a, b) => a.order - b.order)
             }))
             .sort((a, b) => a.order - b.order);
         }
@@ -91,6 +93,39 @@ const CategoryOrder = () => {
       loadOrder();
     }
   }, [serviceGroups, packages]);
+
+  const moveItem = (category, fromIndex, direction) => {
+    const newItems = [...subcategories[category]];
+    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
+    
+    if (toIndex >= 0 && toIndex < newItems.length) {
+      [newItems[fromIndex], newItems[toIndex]] = [newItems[toIndex], newItems[fromIndex]];
+      setSubcategories({...subcategories, [category]: newItems});
+      
+      setMovedItem(newItems[toIndex].name);
+      setTimeout(() => setMovedItem(null), 1000);
+    }
+  };
+
+  const moveService = (category, subcategory, fromIndex, direction) => {
+    const newSubcategories = { ...subcategories };
+    const categoryItems = newSubcategories[category];
+    const targetSubcat = categoryItems.find(s => s.name === subcategory);
+    
+    if (targetSubcat && targetSubcat.items) {
+      const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
+      
+      if (toIndex >= 0 && toIndex < targetSubcat.items.length) {
+        const newItems = [...targetSubcat.items];
+        [newItems[fromIndex], newItems[toIndex]] = [newItems[toIndex], newItems[fromIndex]];
+        targetSubcat.items = newItems;
+        
+        setSubcategories(newSubcategories);
+        setMovedItem(newItems[toIndex].id);
+        setTimeout(() => setMovedItem(null), 1000);
+      }
+    }
+  };
 
   const toggleCategory = (category) => {
     setExpandedCategories(prev => {
@@ -116,39 +151,6 @@ const CategoryOrder = () => {
     });
   };
 
-  const moveItem = (category, fromIndex, direction) => {
-    const newItems = [...subcategories[category]];
-    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
-    
-    if (toIndex >= 0 && toIndex < newItems.length) {
-      [newItems[fromIndex], newItems[toIndex]] = [newItems[toIndex], newItems[fromIndex]];
-      setSubcategories({...subcategories, [category]: newItems});
-      
-      setMovedItem(newItems[toIndex].name);
-      setTimeout(() => setMovedItem(null), 1000);
-    }
-  };
-
-  const moveService = (category, subcategory, fromIndex, direction) => {
-    const newSubcategories = { ...subcategories };
-    const targetSubcat = newSubcategories[category].find(s => s.name === subcategory);
-    
-    if (targetSubcat && targetSubcat.items) {
-      const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
-      
-      if (toIndex >= 0 && toIndex < targetSubcat.items.length) {
-        const newItems = [...targetSubcat.items];
-        [newItems[fromIndex], newItems[toIndex]] = [newItems[toIndex], newItems[fromIndex]];
-        targetSubcat.items = newItems;
-        
-        setSubcategories(newSubcategories);
-        
-        setMovedItem(newItems[toIndex].id);
-        setTimeout(() => setMovedItem(null), 1000);
-      }
-    }
-  };
-
   const handleSave = async () => {
     setIsLoading(true);
     try {
@@ -157,31 +159,30 @@ const CategoryOrder = () => {
         services: {}
       };
   
+      // Zpracování všech kategorií včetně balíčků
       Object.entries(subcategories).forEach(([category, items]) => {
         orderData.categories[category] = {};
+        orderData.services[category] = {};
+        
         items.forEach((item, index) => {
+          // Uložení pořadí kategorie/balíčku
           orderData.categories[category][item.name] = index;
+          
+          // Uložení pořadí služeb v rámci kategorie/balíčku
+          if (item.items && item.items.length > 0) {
+            orderData.services[category][item.name] = {};
+            item.items.forEach((service, serviceIndex) => {
+              orderData.services[category][item.name][service.id] = serviceIndex;
+            });
+          }
         });
-  
-        if (items.some(item => item.items)) {
-          orderData.services[category] = {};
-          items.forEach(item => {
-            if (item.items) {
-              orderData.services[category][item.name] = {};
-              item.items.forEach((service, serviceIndex) => {
-                orderData.services[category][item.name][service.id] = serviceIndex;
-              });
-            }
-          });
-        }
       });
   
       await updateSubcategoryOrder(orderData);
-      
-      // Force reload data
-      window.location.reload();
-      
       alert('Pořadí bylo úspěšně uloženo');
+      
+      // Aktualizace UI
+      window.location.reload();
     } catch (error) {
       console.error('Chyba při ukládání pořadí:', error);
       alert('Při ukládání pořadí došlo k chybě');
@@ -189,6 +190,7 @@ const CategoryOrder = () => {
     setIsLoading(false);
   };
 
+  // Zbytek komponenty zůstává stejný...
   return (
     <div className="space-y-8">
       {Object.entries(subcategories).map(([category, items]) => (
@@ -257,7 +259,7 @@ const CategoryOrder = () => {
                         >
                           <span className="flex-grow text-sm">
                             {service.name}
-                            {category === 'package' && service.price && (
+                            {service.price && (
                               <span className="text-sm text-gray-500 ml-2">
                                 ({service.price.toLocaleString()} Kč)
                               </span>

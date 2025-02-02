@@ -1,3 +1,5 @@
+// ******************* ASI NA NIC *****************
+
 import React from 'react';
 
 const PDFGenerator = ({
@@ -20,11 +22,18 @@ const PDFGenerator = ({
   packages
 }) => {
   const generatePDF = () => {
+    // Debug logging
+    console.log('Service Groups:', serviceGroups);
+    console.log('Selected Services:', selectedServices);
+    console.log('Interior Services:', serviceGroups?.interior?.items);
+
     // Pomocná funkce pro nalezení služby podle ID
     const findServiceById = (serviceId) => {
       const findInCategory = (category) => {
+        console.log(`Hledám službu ${serviceId} v kategorii ${category}`, serviceGroups[category]?.items);
         const service = serviceGroups[category]?.items?.find(service => service.id === serviceId);
         if (service) {
+          console.log('Nalezena služba:', service);
           // Pokud má služba varianty a je vybraná nějaká varianta
           if (service.hasVariants && service.variants) {
             const selectedVariant = service.variants.find(v => v.id === selectedVariants[serviceId]);
@@ -46,65 +55,76 @@ const PDFGenerator = ({
 
     // Funkce pro generování tabulky služeb
     const generateServiceTable = (category) => {
-        const categoryServices = serviceGroups[category];
+      console.log(`Generuji tabulku pro kategorii ${category}:`, serviceGroups[category]);
+      const categoryServices = serviceGroups[category];
         
-        if (!categoryServices || !categoryServices.items) {
-          return '';
-        }
+      if (!categoryServices || !categoryServices.items) {
+        console.log(`Žádné služby pro kategorii ${category}`);
+        return '';
+      }
         
-        const services = categoryServices.items
-          .filter(service => {
-            // Zobrazit jen služby, které jsou vybrané a mají cenu větší než 0
-            if (!selectedServices.has(service.id)) return false;
-      
-            const serviceDetails = findServiceById(service.id);
-            if (!serviceDetails) return false;
-      
-            const price = serviceDetails.hourly 
-              ? (serviceDetails.price * (serviceHours[service.id] || 1)) 
-              : serviceDetails.price;
-      
-            return price > 0;
-          })
-          .map(service => {
-            const serviceDetails = findServiceById(service.id);
-            const hours = serviceDetails.hourly ? (serviceHours[service.id] || 1) : null;
-            const totalServicePrice = hours ? serviceDetails.price * hours : serviceDetails.price;
-            const serviceName = hours
-              ? `${serviceDetails.name.replace('/ 1h', '')} (${hours} h)`
-              : serviceDetails.name;
-        
-            return `
-              <tr>
-                <td>${serviceName}</td>
-                <td class="price-cell" style="width: 150px; text-align: right; white-space: nowrap;">
-                  ${Math.round(totalServicePrice).toLocaleString()} Kč
-                </td>
-              </tr>
-            `;
-          })
-          .filter(Boolean);
-        
-        if (services.length === 0) {
-          return '';
-        }
-        
-        return `
-          <h2>${category === 'interior' ? 'Interiér' : 'Exteriér'}</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Služba</th>
-                <th style="width: 150px; text-align: right;">Cena</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${services.join('')}
-            </tbody>
-          </table>
-        `;
-      };
+      const services = categoryServices.items
+        .filter(service => {
+          console.log('Kontroluji službu:', service);
+          // Zobrazit jen služby, které jsou vybrané a mají cenu větší než 0
+          const isSelected = selectedServices.has(service.id);
+          console.log('Je služba vybraná?', isSelected);
 
+          const serviceDetails = findServiceById(service.id);
+          console.log('Detaily služby:', serviceDetails);
+
+          if (!serviceDetails) {
+            console.log('Služba nemá detaily');
+            return false;
+          }
+
+          const price = serviceDetails.hourly 
+            ? (serviceDetails.price * (serviceHours[service.id] || 1)) 
+            : serviceDetails.price;
+          
+          console.log('Cena služby:', price);
+          return isSelected && price > 0;
+        })
+        .map(service => {
+          const serviceDetails = findServiceById(service.id);
+          const hours = serviceDetails.hourly ? (serviceHours[service.id] || 1) : null;
+          const totalServicePrice = hours ? serviceDetails.price * hours : serviceDetails.price;
+          const serviceName = hours
+            ? `${serviceDetails.name.replace('/ 1h', '')} (${hours} h)`
+            : serviceDetails.name;
+      
+          return `
+            <tr>
+              <td>${serviceName}</td>
+              <td class="price-cell" style="width: 150px; text-align: right; white-space: nowrap;">
+                ${Math.round(totalServicePrice).toLocaleString()} Kč
+              </td>
+            </tr>
+          `;
+        })
+        .filter(Boolean);
+        
+      if (services.length === 0) {
+        console.log(`Žádné vybrané služby pro kategorii ${category}`);
+        return '';
+      }
+        
+      return `
+        <h2>${category === 'interior' ? 'Interiér' : 'Exteriér'}</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Služba</th>
+              <th style="width: 150px; text-align: right;">Cena</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${services.join('')}
+          </tbody>
+        </table>
+      `;
+    };
+    
     // Generování tabulek pro interiér a exteriér
     const interiorServices = generateServiceTable('interior');
     const exteriorServices = generateServiceTable('exterior');
@@ -384,7 +404,7 @@ const PDFGenerator = ({
            Tým MV Auto Detailing<br>
             Tel: +420 731 516 268<br>
             Email: jiramares@seznam.cz
-          </p>
+        </p>
         </div>
       </div>
       </body>

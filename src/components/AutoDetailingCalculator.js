@@ -20,10 +20,28 @@ import ToDoList from './ToDoList';
 import CarSizeSelector from './CarSizeSelector';
 
 
+
 const CAR_SIZE_MARKUP = 0.3; // 30% příplatek pro XL vozy
 
 const AutoDetailingCalculator = () => {
-  const { serviceGroups = {}, packages = {}, addService, updateService, deleteService } = useServiceContext();
+  const { 
+    serviceGroups, 
+    packages,
+    loading,
+    error,
+    setError,
+    settings,
+    addService,
+    updateService,
+    deleteService,
+    addPackage,
+    updatePackage,
+    deletePackage,
+    updateSettings,
+    setServiceGroups
+  } = useServiceContext();
+
+ 
   const [carSize, setCarSize] = useState('M');
   const [discount, setDiscount] = useState(15);
   const [selectedServices, setSelectedServices] = useState(new Set());
@@ -46,12 +64,12 @@ const AutoDetailingCalculator = () => {
   const [editingPackage, setEditingPackage] = useState(null);
   const [expandedPackage, setExpandedPackage] = useState(null);
   const [activePackageId, setActivePackageId] = useState(null);
-
+  
   const interiorGroups = serviceGroups?.interior || {};
   const exteriorGroups = serviceGroups?.exterior || {};
 
   const [selectedVariants, setSelectedVariants] = useState({});
-  const [error, setError] = useState(null);
+  
   
   const [currentRecordId, setCurrentRecordId] = useState(null);
 
@@ -64,6 +82,11 @@ const AutoDetailingCalculator = () => {
     setEditingPackage({ 
       ...packageDetails,
       name: packageName,
+      mainCategory: 'package',
+      hasVariants: false,
+      variants: [],
+      isPackage: true,
+      subcategory: 'package'
     });
   };
 
@@ -75,6 +98,24 @@ const AutoDetailingCalculator = () => {
         console.error('Chyba při mazání balíčku:', error);
       }
     }
+  };
+
+  // Pomocná funkce pro seřazení balíčků podle nastavení
+  const getSortedPackages = () => {
+    if (!packages) return [];
+    
+    const packageEntries = Object.entries(packages);
+    
+    // Použijeme pořadí z settings.subcategoryOrder
+    if (settings?.subcategoryOrder?.categories?.package) {
+      return packageEntries.sort(([nameA], [nameB]) => {
+        const orderA = settings.subcategoryOrder.categories.package[nameA] ?? Number.MAX_SAFE_INTEGER;
+        const orderB = settings.subcategoryOrder.categories.package[nameB] ?? Number.MAX_SAFE_INTEGER;
+        return orderA - orderB;
+      });
+    }
+    
+    return packageEntries;
   };
 
   const handleEditService = async (category, updatedService) => {
@@ -248,29 +289,8 @@ const AutoDetailingCalculator = () => {
     return null;
   };
   
-  const handleEditSubcategory = async (category, oldSubcategory, newSubcategory) => {
-    if (!category || !oldSubcategory || !newSubcategory) return;
-  
-    try {
-      // Aktualizujeme všechny služby v dané podkategorii
-      const updatedServices = serviceGroups[category].items.map(service => {
-        if (service.subcategory === oldSubcategory) {
-          const updatedService = { 
-            ...service, 
-            subcategory: newSubcategory 
-          };
-          // Aktualizujeme každou službu jednotlivě pomocí existující metody
-          updateService(category, updatedService);
-          return updatedService;
-        }
-        return service;
-      });
-  
-    } catch (error) {
-      console.error('Chyba při aktualizaci podkategorie:', error);
-      setError('Chyba při aktualizaci podkategorie: ' + error.message);
-    }
-  };
+
+
   const handleDeleteSubcategory = async (category, subcategory) => {
   if (window.confirm(`Opravdu chcete smazat podkategorii "${subcategory}" a všechny její služby?`)) {
     try {
@@ -383,8 +403,6 @@ const AutoDetailingCalculator = () => {
   onVariantSelect={handleVariantSelect}
   onEditGroup={handleEditGroup}
   onDeleteGroup={handleDeleteGroup}
-  onEditSubcategory={handleEditSubcategory}
-  onDeleteSubcategory={handleDeleteSubcategory}
   serviceHours={serviceHours}
   onHoursChange={(serviceId, hours) => {
     setServiceHours(prev => ({
@@ -537,6 +555,8 @@ const AutoDetailingCalculator = () => {
         />
       )}
 
+
+
 {editingService && (
   <EditServiceModal
     isOpen={!!editingService}
@@ -562,10 +582,13 @@ const AutoDetailingCalculator = () => {
     services={serviceGroups}
     onClose={() => setEditingPackage(null)}
     onSave={async (updatedPackage) => {
-      // Přidejte log před zavoláním updateService
       console.log('Data před updateService:', updatedPackage);
       const result = await updateService('package', updatedPackage);
       console.log('Výsledek updateService:', result);
+      setEditingPackage(null);
+    }}
+    onDelete={async (packageId) => {
+      await deletePackage('package', packageId);
       setEditingPackage(null);
     }}
   />
@@ -634,16 +657,15 @@ const AutoDetailingCalculator = () => {
       </Card>
 
       
-<Card className="bg-gray-50">
- <CardContent className="pt-6">
-   <div className="space-y-4">
-     <h3 className="text-lg font-bold mb-4">Balíčky služeb</h3>
-     {/* Pro každý balíček vytvoříme box */}
-     {packages && Object.entries(packages).map(([packageName, packageDetails], index) => (
-       <div 
-         key={`${packageName}-${index}`} 
-         className={`border rounded-lg ${selectedPackages[packageName] ? 'bg-blue-50' : ''}`}
-       >
+      <Card className="bg-gray-50">
+      <CardContent className="pt-6">
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold mb-4">Balíčky služeb</h3>
+          {getSortedPackages().map(([packageName, packageDetails], index) => (
+            <div 
+              key={`${packageName}-${index}`} 
+              className={`border rounded-lg ${selectedPackages[packageName] ? 'bg-blue-50' : ''}`}
+            >
          {/* Hlavička balíčku s názvem a cenou */}
          <div 
            className="flex items-center justify-between hover:bg-gray-100 p-2 cursor-pointer group"
@@ -715,6 +737,11 @@ const AutoDetailingCalculator = () => {
                  const service = findServiceById(serviceId);
                  return sum + (service?.price || 0);
                }, 0);
+
+               // Výpočet procentuální slevy
+  const discountPercentage = totalValue > 0 
+  ? Math.round(((totalValue - packageDetails.price) / totalValue) * 100)
+  : 0;
                
                // Zobrazíme rozdíl cen pouze pokud se liší od ceny balíčku
                if (totalValue !== packageDetails.price) {
@@ -725,7 +752,7 @@ const AutoDetailingCalculator = () => {
                        <span className="w-24 text-right">{totalValue?.toLocaleString()} Kč</span>
                      </div>
                      <div className="flex justify-between items-center text-green-600 font-medium">
-                       <span>Cena balíčku:</span>
+                     <span>Cena balíčku se slevou {discountPercentage}%:</span>
                        <span className="w-24 text-right">{packageDetails.price?.toLocaleString()} Kč</span>
                      </div>
                    </div>

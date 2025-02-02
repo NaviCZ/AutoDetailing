@@ -12,6 +12,7 @@ import { ServiceProvider, useServiceContext } from './components/ServiceContext'
 import AdminSettings from './components/AdminSettings';
 import { OrderingProvider } from './components/admin/OrderingContext';
 import CategoryOrderManager from './components/admin/CategoryOrderManager';
+import UpdateNotification from './components/UpdateNotification';
 
 
 
@@ -71,6 +72,7 @@ const App = () => {
               </div>
             </div>
           </nav>
+          {user && <UpdateNotification user={user} />}
           <Routes>
             <Route path="/" element={<Home user={user} />} />
             <Route path="/calculator" element={<AutoDetailingCalculator user={user} ref={calculatorRef} />} />
@@ -99,11 +101,17 @@ const Home = ({ user }) => {
     }
   
     const findServiceById = (serviceId) => {
-      const interiorService = Object.values(serviceGroups.interior.items || {})
+      // Prohledání v interiéru
+      const interiorService = Object.values(serviceGroups.interior?.items || {})
         .find(service => service.id === serviceId);
-      const exteriorService = Object.values(serviceGroups.exterior.items || {})
+      if (interiorService) return interiorService;
+    
+      // Prohledání v exteriéru
+      const exteriorService = Object.values(serviceGroups.exterior?.items || {})
         .find(service => service.id === serviceId);
-      return interiorService || exteriorService;
+      if (exteriorService) return exteriorService;
+    
+      return null;
     };
   
     // Generování řádků pro balíčky
@@ -143,7 +151,7 @@ const Home = ({ user }) => {
           <!DOCTYPE html>
     <html lang="cs">
     <head>
-      <title>Ceník služeb MV Auto Detailing 2024</title>
+      <title>Ceník služeb MV Auto Detailing ${settings.priceListYear}</title>
       <style>
         body {
           font-family: Arial, sans-serif;
@@ -184,22 +192,30 @@ const Home = ({ user }) => {
           padding-left: 20px;
           color: #666;
         }
-
-         .price-column {
-    width: 70px;
-    text-align: right;
-    white-space: nowrap;
-  }
-  th:last-child, td:last-child {
-    width: 70px;
-    text-align: left;
-    white-space: nowrap;
-  }
-  td.variant {
-    padding-left: 20px;
-  }
-
-        
+        .package-name-cell {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .savings {
+          color: rgb(112, 107, 107);
+          font-weight: normal;
+          font-size: 0.9em;
+          margin-left: auto;
+        }
+        .price-column {
+          width: 70px;
+          text-align: right;
+          white-space: nowrap;
+        }
+        th:last-child, td:last-child {
+          width: 70px;
+          text-align: left;
+          white-space: nowrap;
+        }
+        td.variant {
+          padding-left: 20px;
+        }
       </style>
     </head>
     <body>
@@ -207,49 +223,91 @@ const Home = ({ user }) => {
       <h2>Ceník služeb MV Auto Detailing - <span class="year">${settings.priceListYear}</span></h2>
 
       <h2>Balíčky služeb</h2>
-<table>
-  <thead>
-    <tr>
-      <th style="width: 80%">Balíček</th>
-      <th style="width: 20%; text-align: right">Cena</th>
-    </tr>
-  </thead>
-  <tbody>
-    ${Object.entries(packages).map(([packageName, packageDetails]) => {
-      const totalValue = (packageDetails.services || []).reduce((sum, serviceId) => {
-        const service = findServiceById(serviceId);
-        return sum + (service?.price || 0);
-      }, 0);
-
-      const arePricesEqual = totalValue === packageDetails.price;
-
-      return `
-        <tr>
-          <td><strong>${packageName}</strong></td>
-          <td style="text-align: right">${packageDetails.price?.toLocaleString()} Kč</td>
-        </tr>
-        ${packageDetails.services?.map(serviceId => {
-          const service = findServiceById(serviceId);
-          if (!service) return '';
-          return `
-            <tr>
-              <td class="variant" style="background-color: #f8f9fa;">• ${service.name}</td>
-              <td style="text-align: right; background-color: #f8f9fa;">${service.price?.toLocaleString()} Kč</td>
-            </tr>
-          `;
-        }).join('')}
-        ${!arePricesEqual ? `
+      <table>
+        <thead>
           <tr>
-            <td style="text-align: right; color: rgb(112, 107, 107);"><strong>Celková hodnota služeb:</strong></td>
-            <td style="text-align: right; color: rgb(112, 107, 107);"><strong>${totalValue.toLocaleString()} Kč</strong></td>
+            <th style="width: 80%">Balíček</th>
+            <th style="width: 20%; text-align: right">Cena</th>
           </tr>
-          
-        ` : ''}
-        <tr><td colspan="2" style="border: none; height: 20px;"></td></tr>
-      `;
-    }).join('')}
-  </tbody>
-</table>
+        </thead>
+        <tbody>
+          ${Object.entries(packages).map(([packageName, packageDetails]) => {
+            const totalValue = (packageDetails.services || []).reduce((sum, serviceId) => {
+              const service = findServiceById(serviceId);
+              return sum + (service?.price || 0);
+            }, 0);
+
+            const arePricesEqual = totalValue === packageDetails.price;
+            const savingsPercentage = Math.round((totalValue - packageDetails.price) / totalValue * 100);
+
+            return `
+              <tr>
+                <td>
+                  <div class="package-name-cell">
+                    <strong>${packageName}</strong>
+                    ${!arePricesEqual ? `<span class="savings">(sleva ${savingsPercentage}%)</span>` : ''}
+                  </div>
+                </td>
+                <td style="text-align: right">${packageDetails.price?.toLocaleString()} Kč</td>
+              </tr>
+              ${packageDetails.services?.map(serviceId => {
+                const service = findServiceById(serviceId);
+                if (!service) return '';
+                return `
+                  <tr>
+                    <td class="variant" style="background-color: #f8f9fa;">• ${service.name}</td>
+                    <td style="text-align: right; background-color: #f8f9fa;">${service.price?.toLocaleString()} Kč</td>
+                  </tr>
+                `;
+              }).join('')}
+              ${!arePricesEqual ? `
+                <tr>
+                  <td style="text-align: right; color: rgb(112, 107, 107);"><strong>Celková hodnota služeb:</strong></td>
+                  <td style="text-align: right; color: rgb(112, 107, 107);"><strong>${totalValue.toLocaleString()} Kč</strong></td>
+                </tr>
+              ` : ''}
+              <tr><td colspan="2" style="border: none; height: 20px;"></td></tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+
+
+<h2>Interiér</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Služba</th>
+            <th>Cena</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${Object.values(serviceGroups?.interior?.items || []).map(service => {
+            if (service.hasVariants) {
+              // Pro služby s variantami
+              return `
+                <tr>
+                  <td colspan="2"><strong>${service.name}</strong></td>
+                </tr>za větší vozy:</strong> Pr
+                ${service.variants.map(variant => `
+                  <tr>
+                    <td class="variant">- ${variant.name}</td>
+                    <td>${variant.price.toLocaleString()} Kč</td>
+                  </tr>
+                `).join('')}
+              `;
+            } else {
+              // Pro běžné služby
+              return `
+                <tr>
+                  <td>${service.name}</td>
+                  <td>${service.price.toLocaleString()} Kč${service.hourly ? ' / hod' : ''}</td>
+                </tr>
+              `;
+            }
+          }).join('')}
+        </tbody>
+      </table>
 
       <h2>Exteriér</h2>
       <table>
@@ -287,7 +345,7 @@ const Home = ({ user }) => {
         </tbody>
       </table>
         <div style="margin-top: 30px; border-top: 1px solid #e0e0e0; padding-top: 20px;">
-        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
           <h3 style="color: #2563eb; margin: 0 0 10px 0;">Důležité informace:</h3>
           <p style="margin: 0; color: #374151;">
             <strong>Příplatek za větší vozy:</strong> Pro SUV, dodávky a větší vozidla se účtuje příplatek ${Math.round(settings.carSizeMarkup * 100)}% k základní ceně služeb.

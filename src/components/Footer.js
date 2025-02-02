@@ -17,7 +17,7 @@ const Footer = () => {
           Ivan Vondráček
         </a>
       </p>
-      <p className="text-xs">Verze 1.0.0</p>
+      <p className="text-xs">Beta verze 1.0.0</p>
     </footer>
   );
 };

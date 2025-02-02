@@ -2,23 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/Card';
 import { Button } from './ui/Button';
 import { useServiceContext } from './ServiceContext';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import CategoryOrder from './admin/CategoryOrder';
 
 const AdminSettings = () => {
-  const { settings, updateSettings, serviceGroups } = useServiceContext();
+  const { settings, updateSettings, restoreInteriorServices } = useServiceContext();
   const [carSizeMarkup, setCarSizeMarkup] = useState(30);
   const [priceListYear, setPriceListYear] = useState(new Date().getFullYear());
   const [isLoading, setIsLoading] = useState(false);
-  const [categoryOrder, setCategoryOrder] = useState({});
-  const [subcategoryOrder, setSubcategoryOrder] = useState({});
 
   useEffect(() => {
     if (settings) {
       setCarSizeMarkup(settings.carSizeMarkup * 100 || 30);
       setPriceListYear(settings.priceListYear || new Date().getFullYear());
-      setCategoryOrder(settings.ordering?.categories || {});
-      setSubcategoryOrder(settings.ordering?.subcategories || {});
     }
   }, [settings]);
 
@@ -27,11 +21,7 @@ const AdminSettings = () => {
     try {
       await updateSettings({
         carSizeMarkup: carSizeMarkup / 100,
-        priceListYear: priceListYear,
-        ordering: {
-          categories: categoryOrder,
-          subcategories: subcategoryOrder
-        }
+        priceListYear: priceListYear
       });
       alert('Nastavení bylo úspěšně uloženo');
     } catch (error) {
@@ -41,6 +31,7 @@ const AdminSettings = () => {
     setIsLoading(false);
   };
 
+  
   return (
     <div className="container mx-auto p-8">
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Administrace</h1>
@@ -82,19 +73,14 @@ const AdminSettings = () => {
             disabled={isLoading}
             className="w-full sm:w-auto mt-4"
           >
-            {isLoading ? 'Ukládání...' : 'Uložit obecná nastavení'}
+            {isLoading ? 'Ukládání...' : 'Uložit nastavení'}
           </Button>
         </CardContent>
       </Card>
-   
-      <Card>
-        <CardContent>
-          <h2 className="text-xl font-semibold mb-6">Správa pořadí kategorií, služeb a balíčků</h2>
-          <CategoryOrder />
-        </CardContent>
-      </Card>
+
+      
     </div>
-   );
+  );
 };
 
 export default AdminSettings;

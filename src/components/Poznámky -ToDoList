@@ -7,3 +7,13 @@ ve dveřích gumy atd.. opět by to mělo jít boxem zatrhnout že se to udělal
 Taky všechny ty věci co se udělali na voze (zatrhnout) by se měli ukládat společně do Uložené záznamy.
 Prostě by to měl být takový průvodce procesem bybraných služeb a možná i možnost napojení na Správa produktů, aby se vědělo co třeba použít.
 
+Editace podkategorií -  když není rozbalená podkategorie tak se neotevře modal pro editaci, ale když kliknu na tužku a následně se na řádek podkategorie tak se modal otevře
+Zárověn bych potřeboval aby při přesunu služby na jinou pozici se nějak jakoby zvýraznil její pohyb a kde je.
+
+
+
+Přidat balíček výběr podkategorií
+
+Mazání balíčku
+
+Mazání notifikací z DB
