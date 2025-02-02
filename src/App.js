@@ -361,6 +361,11 @@ const Home = ({ user }) => {
             Tel: +420 731 516 268<br>
             Email: jiramares@seznam.cz
           </p>
+
+          <div style="font-size: 10px; color:rgb(178, 182, 187); margin-top: 16px;">
+          Developed by  Ivan Vondráček • vondracek.github.io
+          </div>
+          
         </div>
       </div>
     </body>
