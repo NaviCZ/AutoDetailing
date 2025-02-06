@@ -7,12 +7,13 @@ import LoginPage from './components/LoginPage';
 import Logout from './components/Logout';
 import ProductManagement from './components/ProductManagement';
 import { signInUser, signOutUser, onAuthStateChangedListener } from './components/Firebase';
-import { FaUser, FaCalculator, FaList, FaBoxes,FaCog } from 'react-icons/fa';
+import { FaUser, FaCalculator, FaList, FaBoxes, FaCog, FaGift } from 'react-icons/fa';
 import { ServiceProvider, useServiceContext } from './components/ServiceContext';
 import AdminSettings from './components/AdminSettings';
 import { OrderingProvider } from './components/admin/OrderingContext';
 import CategoryOrderManager from './components/admin/CategoryOrderManager';
 import UpdateNotification from './components/UpdateNotification';
+import VoucherGenerator from './components/VoucherGenerator';
 
 
 
@@ -81,6 +82,7 @@ const App = () => {
             <Route path="/products" element={<ProductManagement />} />
             <Route path="/admin" element={<AdminSettings />} />
             <Route path="/admin/ordering" element={<CategoryOrderManager />} />
+            <Route path="/vouchers" element={<VoucherGenerator />} />
           </Routes>
         </div>
         <Footer />
@@ -386,21 +388,29 @@ return (
     </h1>
 
     {user ? (
-      <div className="mt-8 flex flex-wrap gap-4 justify-center">
-        <Link
-          to="/calculator"
-          className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors inline-flex items-center w-full sm:w-auto"
-        >
-          <FaCalculator className="mr-2" />
-          Kalkulačka
-        </Link>
-        <button
-          onClick={generatePriceListPDF}
-          className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors inline-flex items-center w-full sm:w-auto"
-        >
-          <FaList className="mr-2" />
-          Ceník
-        </button>
+  <div className="mt-8 flex flex-wrap gap-4 justify-center">
+    <Link
+      to="/calculator"
+      className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors inline-flex items-center w-full sm:w-auto"
+    >
+      <FaCalculator className="mr-2" />
+      Kalkulačka
+    </Link>
+    <button
+      onClick={generatePriceListPDF}
+      className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors inline-flex items-center w-full sm:w-auto"
+    >
+      <FaList className="mr-2" />
+      Ceník
+    </button>
+    {/* Nové tlačítko pro dárkové poukazy */}
+    <Link
+      to="/vouchers"
+      className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors inline-flex items-center w-full sm:w-auto"
+    >
+      <FaGift className="mr-2" />
+      Dárkové poukazy
+    </Link>
         <Link
           to="/products"
           className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors inline-flex items-center w-full sm:w-auto"

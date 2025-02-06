@@ -9,7 +9,7 @@ const Footer = () => {
       <p>
         Vytvořil{' '}
         <a 
-          href="https://github.com/NaviCZ" 
+          href="https://vondracek-ivan.github.io/" 
           className="text-blue-600 hover:text-blue-800"
           target="_blank"
           rel="noopener noreferrer"

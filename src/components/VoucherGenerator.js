@@ -2,8 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { useServiceContext } from './ServiceContext';
 import { getDatabase, ref, set, onValue, remove } from 'firebase/database';
-// Import ikony koše z lucide-react
-import { Trash } from 'lucide-react';
 
 const VoucherGenerator = () => {
   // Získání balíčků a načítacího stavu ze ServiceContext
@@ -281,6 +279,7 @@ const VoucherGenerator = () => {
 
   // Funkce pro smazání voucheru podle jeho ID
   const handleDelete = async (voucherId) => {
+    // Dotaz na potvrzení smazání
     if (!window.confirm("Opravdu chcete smazat tento poukaz?")) return;
     try {
       const db = getDatabase();
@@ -442,12 +441,14 @@ const VoucherGenerator = () => {
                 >
                   Stáhnout PDF
                 </button>
-                {/* Tlačítko pro smazání voucheru s ikonou z lucide-react */}
+                {/* Tlačítko pro smazání voucheru s ikonou koše */}
                 <button
                   onClick={() => handleDelete(voucher.id)}
                   className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
                 >
-                  <Trash className="h-5 w-5" />
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4a1 1 0 011 1v1H9V4a1 1 0 011-1z" />
+                  </svg>
                 </button>
               </div>
             </div>
