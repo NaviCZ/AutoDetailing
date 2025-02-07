@@ -2,23 +2,33 @@
 import React, { useState, useEffect } from 'react';
 import { useServiceContext } from './ServiceContext';
 import { getDatabase, ref, set, onValue, remove } from 'firebase/database';
+import { FaTrash } from 'react-icons/fa';
 
 const VoucherGenerator = () => {
-  // Získání balíčků a načítacího stavu ze ServiceContext
+  // Načtení balíčků a stavu načítání z ServiceContext
   const { packages, loading } = useServiceContext();
+  
   // Stav pro již vytvořené poukazy
   const [vouchers, setVouchers] = useState([]);
-  // Stav pro data voucheru, včetně pole pro vybraný obrázek (miniaturu)
-  const [voucherData, setVoucherData] = useState({
+  
+  // Stav pro chybové hlášky validace
+  const [errors, setErrors] = useState({
     recipientName: '',
-    packageId: 'custom',
     customAmount: '',
-    message: '',
-    validityMonths: 12,
-    selectedImage: '' // zde se uloží cesta k vybrané miniatuře
+    selectedImage: ''
+  });
+  
+  // Základní stav pro data voucheru
+  const [voucherData, setVoucherData] = useState({
+    recipientName: '',          // Jméno příjemce
+    packageId: 'custom',        // ID balíčku nebo 'custom' pro vlastní částku
+    customAmount: '',           // Vlastní částka (pouze pro custom voucher)
+    message: '',               // Volitelné věnování
+    validityMonths: 12,        // Platnost v měsících (přednastaveno na rok)
+    selectedImage: ''          // Vybraný obrázek pro poukaz
   });
 
-  // Načtení existujících voucherů z Firebase databáze
+  // Načtení existujících voucherů z Firebase při inicializaci
   useEffect(() => {
     const db = getDatabase();
     const vouchersRef = ref(db, 'vouchers');
@@ -33,55 +43,195 @@ const VoucherGenerator = () => {
         setVouchers(voucherList);
       }
     });
+    
 
+    // Cleanup při odmontování komponenty
     return () => unsubscribe();
   }, []);
 
-  // Debug výpis dostupných balíčků
+  // Automatický výběr obrázku při změně balíčku
   useEffect(() => {
-    console.log('Dostupné balíčky:', packages);
-  }, [packages]);
+    if (voucherData.packageId !== 'custom') {
+      const defaultImage = getBackgroundImage(voucherData.packageId);
+      setVoucherData(prev => ({
+        ...prev,
+        selectedImage: defaultImage
+      }));
+    }
+  }, [voucherData.packageId]);
 
-  // Debug výpis načtených voucherů
-  useEffect(() => {
-    console.log('Načtené vouchery:', vouchers);
-  }, [vouchers]);
+  // Určení typu balíčku podle jeho ID a názvu
+ // Vylepšená funkce pro určení typu balíčku
 
-  // Další debug výpis ze ServiceContext
-  useEffect(() => {
-    console.log('ServiceContext packages:', packages);
-    console.log('Loading:', loading);
-  }, [packages, loading]);
-
-  // Funkce pro určení typu balíčku na základě ID a jeho názvu
-  const getPackageType = (packageId) => {
+ const getPackageType = (packageId) => {
     if (packageId === 'custom') return 'custom';
     
-    const packageName = packages[packageId]?.name?.toLowerCase() || '';
+    // Použijeme přímo ID balíčku, pokud název není dostupný
+    const packageIdentifier = packageId.toLowerCase();
+    console.log('Kontroluji balíček:', packageIdentifier);
     
-    if (packageName.includes('keramick')) return 'premium';
-    if (packageName.includes('mytí') || packageName.includes('čištění')) return 'basic';
+    // Kontrolujeme podle ID balíčku
+    if (packageIdentifier.includes('keramick') || 
+        packageIdentifier.includes('interier') || 
+        packageIdentifier.includes('interiér')) {
+      return 'premium';
+    }
     
-    return 'custom'; // výchozí typ
+    if (packageIdentifier.includes('mytí') || 
+        packageIdentifier.includes('čištění')) {
+      return 'basic';
+    }
+    
+    return 'basic';
   };
 
-  // Funkce pro automatický výběr obrázku podle typu balíčku
+  // Získání cesty k obrázku podle typu balíčku
   const getBackgroundImage = (packageId) => {
     const type = getPackageType(packageId);
     return `voucher-${type}.jpg`;
   };
 
-  // Funkce pro generování PDF poukazu
+
+  // Automatický výběr obrázku při změně balíčku
+  // Debug výpis pro packages
+useEffect(() => {
+    console.log('Dostupné balíčky:', packages);
+  }, [packages]);
+  
+  useEffect(() => {
+    if (voucherData.packageId !== 'custom') {
+      const packageIdentifier = voucherData.packageId;
+      const type = getPackageType(packageIdentifier);
+      const defaultImage = `voucher-${type}.jpg`;
+      
+      console.log('Detaily balíčku:');
+      console.log('- ID balíčku:', packageIdentifier);
+      console.log('- Určený typ:', type);
+      console.log('- Vybraný obrázek:', defaultImage);
+      
+      setVoucherData(prev => ({
+        ...prev,
+        selectedImage: defaultImage
+      }));
+    }
+  }, [voucherData.packageId]);
+
+  // Validace formuláře před odesláním
+  const validateForm = () => {
+    const newErrors = {
+      recipientName: '',
+      customAmount: '',
+      selectedImage: ''
+    };
+    let isValid = true;
+
+    // Validace jména příjemce (2-50 znaků, pouze písmena a mezery)
+    if (!voucherData.recipientName.trim()) {
+      newErrors.recipientName = 'Zadejte jméno příjemce';
+      isValid = false;
+    } else if (!/^[a-zA-ZáčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ\s]{2,50}$/.test(voucherData.recipientName)) {
+      newErrors.recipientName = 'Jméno může obsahovat pouze písmena a mezery (2-50 znaků)';
+      isValid = false;
+    }
+
+    // Validace částky pro vlastní voucher
+    if (voucherData.packageId === 'custom') {
+      if (!voucherData.customAmount) {
+        newErrors.customAmount = 'Zadejte částku';
+        isValid = false;
+      } else if (isNaN(voucherData.customAmount) || voucherData.customAmount <= 0) {
+        newErrors.customAmount = 'Zadejte platnou částku';
+        isValid = false;
+      }
+    }
+
+    // Validace výběru obrázku pro vlastní voucher
+    if (voucherData.packageId === 'custom' && !voucherData.selectedImage) {
+      newErrors.selectedImage = 'Vyberte obrázek poukazu';
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  // Generování unikátního kódu poukazu
+  const generateVoucherCode = () => {
+    const prefix = 'MV';
+    const year = new Date().getFullYear().toString().substr(-2);
+    const random = Math.random().toString(36).substr(2, 4).toUpperCase();
+    return `${prefix}${year}-${random}`;
+  };
+  
+  // Výpočet data expirace voucheru
+  const getExpirationDate = (months) => {
+    const date = new Date();
+    date.setMonth(date.getMonth() + months);
+    return date.toISOString();
+  };
+
+  // Zpracování odeslání formuláře
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Kontrola validace před odesláním
+    if (!validateForm()) {
+      return;
+    }
+
+    try {
+      const db = getDatabase();
+      const voucherId = Date.now().toString();
+      const voucherCode = generateVoucherCode();
+      
+      // Vytvoření objektu voucheru pro uložení
+      const voucherToSave = {
+        code: voucherCode,
+        ...voucherData,
+        createdAt: new Date().toISOString(),
+        expiresAt: getExpirationDate(voucherData.validityMonths),
+        status: 'active'
+      };
+      
+      // Uložení do Firebase
+      await set(ref(db, `vouchers/${voucherId}`), voucherToSave);
+      alert('Poukaz byl úspěšně vytvořen!');
+      
+      // Reset formuláře po úspěšném vytvoření
+      setVoucherData({
+        recipientName: '',
+        packageId: 'custom',
+        customAmount: '',
+        message: '',
+        validityMonths: 12,
+        selectedImage: ''
+      });
+    } catch (error) {
+      console.error('Chyba při ukládání:', error);
+      alert('Chyba při vytváření poukazu: ' + error.message);
+    }
+  };
+
+  // Smazání voucheru
+  const handleDelete = async (voucherId) => {
+    if (!window.confirm("Opravdu chcete smazat tento poukaz?")) return;
+    try {
+      const db = getDatabase();
+      await remove(ref(db, `vouchers/${voucherId}`));
+      alert("Poukaz byl úspěšně smazán.");
+    } catch (error) {
+      console.error("Chyba při mazání poukazu:", error);
+      alert("Chyba při mazání poukazu: " + error.message);
+    }
+  };
+
+  // Generování PDF souboru poukazu
   const generateVoucherPDF = async (voucher) => {
     try {
-      console.log('Generuji poukaz pro balíček:', voucher.packageId);
-      console.log('Typ balíčku:', getPackageType(voucher.packageId));
-      
-      // Použije se vybraný obrázek (miniatura) uložená ve voucheru, nebo automatický výběr
+      // Výběr obrázku pro pozadí
       const backgroundImage = voucher.selectedImage || getBackgroundImage(voucher.packageId);
-      console.log('Použité pozadí:', backgroundImage);
 
-      // Načtení obrázku a převod na base64
+      // Načtení obrázku pozadí
       const response = await fetch(`${process.env.PUBLIC_URL}/${backgroundImage}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -101,6 +251,7 @@ const VoucherGenerator = () => {
           <head>
             <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
             <style>
+              /* CSS styly pro poukaz */
               .voucher {
                 width: 800px;
                 height: 400px;
@@ -113,7 +264,6 @@ const VoucherGenerator = () => {
                 grid-template-columns: 1fr 1fr;
                 box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
               }
-  
               .logo-container {
                 background: white;
                 border-radius: 100%;
@@ -125,20 +275,17 @@ const VoucherGenerator = () => {
                 margin: 30px;
                 box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
               }
-  
               .logo {
                 width: 85%;
                 height: 85%;
                 object-fit: contain;
               }
-  
               .left-side {
                 z-index: 2;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
               }
-  
               .title {
                 font-family: 'Playfair Display', serif;
                 font-size: 48px;
@@ -149,7 +296,6 @@ const VoucherGenerator = () => {
                 color: #ffffff;
                 text-align: center;
               }
-  
               .right-side {
                 background: rgba(255, 255, 255, 0.95);
                 padding: 20px;
@@ -158,18 +304,15 @@ const VoucherGenerator = () => {
                 color: #000;
                 box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
               }
-  
               .field {
                 margin-bottom: 20px;
               }
-  
               .field-label {
                 color: #666;
                 font-size: 14px;
                 margin-bottom: 2px;
                 font-family: 'Roboto', sans-serif;
               }
-  
               .field-value {
                 border-bottom: 1px solid #ccc;
                 padding: 5px 0;
@@ -225,7 +368,7 @@ const VoucherGenerator = () => {
           </html>
         `;
 
-        // Otevření nového okna a vyvolání tisku (PDF)
+        // Otevření nového okna pro tisk
         const printWindow = window.open('', '', 'height=600, width=800');
         printWindow.document.write(pdfContent);
         printWindow.document.close();
@@ -236,68 +379,15 @@ const VoucherGenerator = () => {
     }
   };
 
-  // Funkce pro generování unikátního kódu poukazu
-  const generateVoucherCode = () => {
-    const prefix = 'MV';
-    const year = new Date().getFullYear().toString().substr(-2);
-    const random = Math.random().toString(36).substr(2, 4).toUpperCase();
-    return `${prefix}${year}-${random}`;
-  };
-  
-  // Funkce pro výpočet data expirace voucheru
-  const getExpirationDate = (months) => {
-    const date = new Date();
-    date.setMonth(date.getMonth() + months);
-    return date.toISOString();
-  };
-
-  // Funkce, která se spustí při odeslání formuláře pro vytvoření voucheru
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const db = getDatabase();
-      const voucherId = Date.now().toString();
-      const voucherCode = generateVoucherCode();
-      
-      // Vytvoření objektu voucheru, který se uloží do databáze
-      const voucherToSave = {
-        code: voucherCode,
-        ...voucherData,
-        createdAt: new Date().toISOString(),
-        expiresAt: getExpirationDate(voucherData.validityMonths),
-        status: 'active'
-      };
-      
-      await set(ref(db, `vouchers/${voucherId}`), voucherToSave);
-      alert('Poukaz byl úspěšně vytvořen!');
-      
-    } catch (error) {
-      console.error('Chyba při ukládání:', error);
-      alert('Chyba při vytváření poukazu: ' + error.message);
-    }
-  };
-
-  // Funkce pro smazání voucheru podle jeho ID
-  const handleDelete = async (voucherId) => {
-    // Dotaz na potvrzení smazání
-    if (!window.confirm("Opravdu chcete smazat tento poukaz?")) return;
-    try {
-      const db = getDatabase();
-      await remove(ref(db, `vouchers/${voucherId}`));
-      alert("Poukaz byl úspěšně smazán.");
-    } catch (error) {
-      console.error("Chyba při mazání poukazu:", error);
-      alert("Chyba při mazání poukazu: " + error.message);
-    }
-  };
-
+  // Render komponenty
   return (
     <div className="container mx-auto p-8">
       <h1 className="text-3xl font-bold mb-8">Dárkové poukazy</h1>
       
+      {/* Formulář pro vytvoření poukazu */}
       <div className="max-w-2xl mx-auto bg-white rounded-lg shadow p-6">
         <form onSubmit={handleSubmit}>
-          {/* Výběr typu poukazu: balíček nebo vlastní částka */}
+          {/* Výběr typu poukazu */}
           <div className="mb-4">
             <label className="block text-sm font-medium mb-2">
               Typ poukazu
@@ -319,7 +409,7 @@ const VoucherGenerator = () => {
             </select>
           </div>
           
-          {/* Pokud je vybrána možnost "custom", zobrazí se pole pro zadání vlastní částky */}
+          {/* Pole pro vlastní částku */}
           {voucherData.packageId === 'custom' && (
             <div className="mb-4">
               <label className="block text-sm font-medium mb-2">
@@ -327,33 +417,40 @@ const VoucherGenerator = () => {
               </label>
               <input
                 type="number"
-                className="w-full p-2 border rounded"
+                className={`w-full p-2 border rounded ${errors.customAmount ? 'border-red-500' : ''}`}
                 value={voucherData.customAmount}
                 onChange={(e) => setVoucherData({
                   ...voucherData,
                   customAmount: e.target.value
                 })}
               />
+              {errors.customAmount && (
+                <p className="text-red-500 text-sm mt-1">{errors.customAmount}</p>
+              )}
             </div>
           )}
 
-          {/* Vstup pro jméno příjemce */}
+          {/* Pole pro jméno příjemce */}
           <div className="mb-4">
             <label className="block text-sm font-medium mb-2">
               Pro koho
             </label>
             <input
               type="text"
-              className="w-full p-2 border rounded"
+              className={`w-full p-2 border rounded ${errors.recipientName ? 'border-red-500' : ''}`}
               value={voucherData.recipientName}
               onChange={(e) => setVoucherData({
                 ...voucherData,
                 recipientName: e.target.value
               })}
+              maxLength={50}
             />
+            {errors.recipientName && (
+              <p className="text-red-500 text-sm mt-1">{errors.recipientName}</p>
+            )}
           </div>
 
-          {/* Vstup pro volitelné věnování */}
+          {/* Pole pro věnování */}
           <div className="mb-4">
             <label className="block text-sm font-medium mb-2">
               Věnování (nepovinné)
@@ -368,7 +465,7 @@ const VoucherGenerator = () => {
             />
           </div>
 
-          {/* Výběr platnosti voucheru */}
+          {/* Výběr platnosti */}
           <div className="mb-6">
             <label className="block text-sm font-medium mb-2">
               Platnost
@@ -387,23 +484,59 @@ const VoucherGenerator = () => {
             </select>
           </div>
 
-          {/* Sekce pro výběr miniatury (obrázku) pro poukaz */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">
-              Vyberte obrázek pro poukaz
-            </label>
-            <div className="flex space-x-4">
-              {['voucher-basic.jpg', 'voucher-premium.jpg', 'voucher-custom.jpg'].map((img, index) => (
-                <div key={index} 
-                     className={`cursor-pointer border-2 p-1 ${voucherData.selectedImage === img ? 'border-blue-600' : 'border-transparent'}`}
-                     onClick={() => setVoucherData({ ...voucherData, selectedImage: img })}>
-                  <img src={`${process.env.PUBLIC_URL}/${img}`} alt={`miniatura ${index}`} className="w-20 h-20 object-cover" />
-                </div>
-              ))}
-            </div>
+          {/* Výběr obrázku pro poukaz */}
+<div className="mb-4">
+  <label className="block text-sm font-medium mb-2">
+    Vyberte obrázek pro poukaz
+  </label>
+  <div className="flex space-x-4">
+    {[
+      { file: 'voucher-basic.jpg', label: 'Mytí', type: 'basic' },
+      { file: 'voucher-premium.jpg', label: 'Interiér', type: 'premium' },
+      { file: 'voucher-custom.jpg', label: 'Keramika', type: 'custom' }
+    ].map((img, index) => (
+      <div 
+        key={index}
+        className={`
+          relative cursor-pointer rounded-lg overflow-hidden
+          transition-all duration-200
+          ${voucherData.selectedImage === img.file 
+            ? 'ring-4 ring-blue-500 shadow-lg transform scale-105' 
+            : 'hover:ring-2 hover:ring-blue-300'
+          }
+        `}
+        onClick={() => setVoucherData({ ...voucherData, selectedImage: img.file })}
+      >
+        <img 
+          src={`${process.env.PUBLIC_URL}/${img.file}`} 
+          alt={`miniatura ${img.label}`} 
+          className="w-32 h-32 object-cover"
+        />
+        {/* Překrytí s popiskem */}
+        <div className={`
+          absolute bottom-0 left-0 right-0 
+          bg-gradient-to-t from-black/70 to-transparent
+          p-2 text-center
+        `}>
+          <span className="text-white text-sm font-medium">{img.label}</span>
+        </div>
+        {/* Indikátor výběru */}
+        {voucherData.selectedImage === img.file && (
+          <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full p-1">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
           </div>
+        )}
+      </div>
+    ))}
+  </div>
+  {errors.selectedImage && (
+    <p className="text-red-500 text-sm mt-1">{errors.selectedImage}</p>
+  )}
+</div>
 
-          {/* Tlačítko pro odeslání formuláře a vytvoření voucheru */}
+          {/* Tlačítko pro vytvoření poukazu */}
           <button
             type="submit"
             className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
@@ -413,7 +546,7 @@ const VoucherGenerator = () => {
         </form>
       </div>
 
-      {/* Seznam vytvořených voucherů */}
+      {/* Seznam vytvořených poukazů */}
       <div className="max-w-2xl mx-auto mt-8">
         <h2 className="text-2xl font-bold mb-4">Vytvořené poukazy</h2>
         <div className="space-y-4">
@@ -441,14 +574,12 @@ const VoucherGenerator = () => {
                 >
                   Stáhnout PDF
                 </button>
-                {/* Tlačítko pro smazání voucheru s ikonou koše */}
+                {/* Tlačítko pro smazání voucheru */}
                 <button
                   onClick={() => handleDelete(voucher.id)}
                   className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4a1 1 0 011 1v1H9V4a1 1 0 011-1z" />
-                  </svg>
+                  <FaTrash />
                 </button>
               </div>
             </div>
@@ -459,4 +590,4 @@ const VoucherGenerator = () => {
   );
 };
 
-export default VoucherGenerator;
+export default VoucherGenerator

@@ -1,461 +1,801 @@
-// components/VoucherGenerator.js
 import React, { useState, useEffect } from 'react';
+import { Card, CardContent } from './ui/Card';
+import { Button } from './ui/Button';
+import { Printer, Download, Calculator, List, Package, Plus, Edit2, Trash2, HelpCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useReactToPrint } from 'react-to-print';
+import { saveRecordToFirebase, getRecordsFromFirebase, deleteRecordFromFirebase, onAuthStateChangedListener } from './Firebase';
+import { auth } from './Firebase';
 import { useServiceContext } from './ServiceContext';
-import { getDatabase, ref, set, onValue, remove } from 'firebase/database';
-// Import ikony koše z lucide-react
-import { Trash } from 'lucide-react';
+import { saveRecordToFirestore } from './Firebase';
+import ServiceItem from './ServiceItem';
+import ServiceGroup from './ServiceGroup';
+import EditServiceModal from './EditServiceModal';
+import PDFGenerator from './PDFGenerator';
+import GitHubUpdates from './GitHubUpdates';
+import SavedRecordsModal from './SavedRecordsModal';
+import AddServiceModal from './AddServiceModal';
+import EditPackageModal from './EditPackageModal';
+import ToDoList from './ToDoList';
+import CarSizeSelector from './CarSizeSelector';
+import PackageGroup from './PackageGroup';
 
-const VoucherGenerator = () => {
-  // Získání balíčků a načítacího stavu ze ServiceContext
-  const { packages, loading } = useServiceContext();
-  // Stav pro již vytvořené poukazy
-  const [vouchers, setVouchers] = useState([]);
-  // Stav pro data voucheru, včetně pole pro vybraný obrázek (miniaturu)
-  const [voucherData, setVoucherData] = useState({
-    recipientName: '',
-    packageId: 'custom',
-    customAmount: '',
-    message: '',
-    validityMonths: 12,
-    selectedImage: '' // zde se uloží cesta k vybrané miniatuře
-  });
 
-  // Načtení existujících voucherů z Firebase databáze
+
+const CAR_SIZE_MARKUP = 0.3; // 30% příplatek pro XL vozy
+
+const AutoDetailingCalculator = () => {
+  const { 
+    serviceGroups, 
+    packages,
+    loading,
+    error,
+    setError,
+    settings,
+    addService,
+    updateService,
+    deleteService,
+    addPackage,
+    updatePackage,
+    deletePackage,
+    updateSettings,
+    setServiceGroups
+  } = useServiceContext();
+
+ 
+  const [carSize, setCarSize] = useState('M');
+  const [discount, setDiscount] = useState(15);
+  const [selectedServices, setSelectedServices] = useState(new Set());
+  const [serviceVariants, setServiceVariants] = useState({});
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [vehicleNotes, setVehicleNotes] = useState('');
+  const [totalPrice, setTotalPrice] = useState(0);
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [finalPrice, setFinalPrice] = useState(0);
+  const [serviceHours, setServiceHours] = useState({});
+  const [additionalCharges, setAdditionalCharges] = useState([{ description: '', amount: 0 }]);
+  const [additionalNotes, setAdditionalNotes] = useState('');
+  const [selectedPackages, setSelectedPackages] = useState({});
+  const [showPriceList, setShowPriceList] = useState(false);
+  const [userEmail, setUserEmail] = useState(null);
+  const [showSavedRecords, setShowSavedRecords] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingService, setEditingService] = useState(null);
+  const [editingPackage, setEditingPackage] = useState(null);
+  const [expandedPackage, setExpandedPackage] = useState(null);
+  const [activePackageId, setActivePackageId] = useState(null);
+  
+  const interiorGroups = serviceGroups?.interior || {};
+  const exteriorGroups = serviceGroups?.exterior || {};
+
+  const [selectedVariants, setSelectedVariants] = useState({});
+  
+  
+  const [currentRecordId, setCurrentRecordId] = useState(null);
+
+  const handleAddService = () => {
+    setIsAddModalOpen(true);
+  };
+
+  const handleEditPackage = (packageName, packageDetails) => {
+    console.log('Detail před editací:', packageDetails);
+    setEditingPackage({ 
+      ...packageDetails,
+      name: packageName,
+      mainCategory: 'package',
+      hasVariants: false,
+      variants: [],
+      isPackage: true,
+      subcategory: 'package'
+    });
+  };
+
+  const handleDeletePackage = async (packageId) => {
+    if (window.confirm('Opravdu chcete smazat tento balíček?')) {
+      try {
+        await deleteService('package', packageId);
+      } catch (error) {
+        console.error('Chyba při mazání balíčku:', error);
+      }
+    }
+  };
+
+  // Pomocná funkce pro seřazení balíčků podle nastavení
+  const getSortedPackages = () => {
+    if (!packages) return [];
+    
+    const packageEntries = Object.entries(packages);
+    
+    // Použijeme pořadí z settings.subcategoryOrder
+    if (settings?.subcategoryOrder?.categories?.package) {
+      return packageEntries.sort(([nameA], [nameB]) => {
+        const orderA = settings.subcategoryOrder.categories.package[nameA] ?? Number.MAX_SAFE_INTEGER;
+        const orderB = settings.subcategoryOrder.categories.package[nameB] ?? Number.MAX_SAFE_INTEGER;
+        return orderA - orderB;
+      });
+    }
+    
+    return packageEntries;
+  };
+
+  const handleEditService = async (category, updatedService) => {
+    console.log('AutoDetailingCalculator - editace služby před zpracováním:', 
+      { category, updatedService }
+    );
+  
+    if (!category || !updatedService) {
+      console.error('Chybí data pro editaci:', { category, updatedService });
+      return;
+    }
+  
+    // Přidáme nastavení editingService pro otevření modalu
+    setEditingService({
+      ...updatedService,
+      mainCategory: category
+    });
+  };
+
+  const handleEditServiceSave = (groupId, updatedService) => {
+    if (!groupId || !updatedService) {
+        console.error('Chybí data pro uložení:', { groupId, updatedService });
+        return;
+    }
+    console.log('AutoDetailingCalculator - Data před updateService:', { groupId, updatedService });
+    updateService(groupId, {
+        ...updatedService,
+        mainCategory: groupId
+    });
+    setEditingService(null);
+};
+  
+
+  const handleDeleteService = (serviceGroupId, serviceId) => {
+    if (window.confirm('Opravdu chcete smazat tuto službu?')) {
+      deleteService(serviceGroupId, serviceId);
+    }
+  };
+  
+  
+
+  const handleVariantChange = (groupId, value) => {
+    const newSelected = new Set(selectedServices);
+    if (serviceVariants[groupId]) {
+      newSelected.delete(serviceVariants[groupId]);
+    }
+
+    if (value) {
+      newSelected.add(value);
+      setServiceVariants({ ...serviceVariants, [groupId]: value });
+    } else {
+      const newVariants = { ...serviceVariants };
+      delete newVariants[groupId];
+      setServiceVariants(newVariants);
+    }
+
+    setSelectedServices(newSelected);
+  };
+
+  
+  const toggleService = (id) => {
+    const newSelected = new Set(selectedServices);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+      if (serviceHours[id]) {
+        const newServiceHours = { ...serviceHours };
+        delete newServiceHours[id];
+        setServiceHours(newServiceHours);
+      }
+    } else {
+      newSelected.add(id);
+      const service =
+        [...Object.values(interiorGroups).flatMap(group => group.services || group.options || []),
+         ...Object.values(exteriorGroups).flatMap(group => group.services || group.options || [])]
+          .find(service => service.id === id);
+
+      if (service?.hourly) {
+        setServiceHours({ ...serviceHours, [id]: 1 });
+      }
+    }
+    setSelectedServices(newSelected);
+  };
+
+  const togglePackage = (packageName) => {
+    const newSelectedPackages = { ...selectedPackages };
+    
+    if (newSelectedPackages[packageName]) {
+      // Při odznačení balíčku
+      delete newSelectedPackages[packageName];
+      // ODSTRANĚNO: nebudeme automaticky odznačovat jednotlivé služby
+    } else {
+      // Při označení balíčku
+      newSelectedPackages[packageName] = {
+        services: packages[packageName]?.services || [],
+        price: packages[packageName]?.price || 0
+      };
+      // ODSTRANĚNO: nebudeme automaticky označovat jednotlivé služby
+    }
+    
+    setSelectedPackages(newSelectedPackages);
+  };
+
+  const handleDiscountChange = (e) => {
+    const value = e.target.value;
+    if (value === '') {
+      setDiscount('');
+    } else {
+      const numValue = Number(value);
+      if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
+        setDiscount(numValue);
+      }
+    }
+  };
+  
+  const handleVariantSelect = (serviceId, variantId) => {
+    if (variantId) {
+      // Když je vybrána varianta, přidáme službu do selectedServices
+      setSelectedServices(prev => new Set([...prev, serviceId]));
+      setSelectedVariants(prev => ({
+        ...prev,
+        [serviceId]: variantId
+      }));
+    } else {
+      // Když je výběr zrušen, odstraníme službu i variantu
+      setSelectedServices(prev => {
+        const newSelected = new Set(prev);
+        newSelected.delete(serviceId);
+        return newSelected;
+      });
+      setSelectedVariants(prev => {
+        const newVariants = { ...prev };
+        delete newVariants[serviceId];
+        return newVariants;
+      });
+    }
+  };
+  
+  const handleToggleService = (id) => {
+    const newSelected = new Set(selectedServices);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+      // Odstranění variant a hodin při odznačení služby
+      if (selectedVariants[id]) {
+        const newVariants = { ...selectedVariants };
+        delete newVariants[id];
+        setSelectedVariants(newVariants);
+      }
+      if (serviceHours[id]) {
+        const newHours = { ...serviceHours };
+        delete newHours[id];
+        setServiceHours(newHours);
+      }
+    } else {
+      newSelected.add(id);
+      // Přidání výchozích hodin pro hodinové služby
+      const service = findServiceById(id);
+      if (service?.hourly) {
+        setServiceHours(prev => ({ ...prev, [id]: 1 }));
+      }
+    }
+    setSelectedServices(newSelected);
+  };
+  
+  const findServiceById = (serviceId) => {
+    for (const category of Object.values(serviceGroups)) {
+      if (category.items) {
+        const service = category.items.find(item => item.id === serviceId);
+        if (service) return service;
+      }
+    }
+    return null;
+  };
+  
+
+
+  const handleDeleteSubcategory = async (category, subcategory) => {
+  if (window.confirm(`Opravdu chcete smazat podkategorii "${subcategory}" a všechny její služby?`)) {
+    try {
+      // Najdeme všechny služby v dané podkategorii
+      const servicesToDelete = serviceGroups[category].items
+        .filter(service => service.subcategory === subcategory);
+      
+      // Použijeme existující deleteService pro každou službu
+      for (const service of servicesToDelete) {
+        await deleteService(category, service.id);
+      }
+      
+    } catch (error) {
+      console.error('Chyba při mazání podkategorie:', error);
+      setError('Chyba při mazání podkategorie: ' + error.message);
+    }
+  }
+};
+  const calculateServicePrice = (serviceId) => {
+    const service = findServiceById(serviceId);
+    if (!service) return 0;
+  
+    if (service.hasVariants && selectedVariants[serviceId]) {
+      const variant = service.variants.find(v => v.id === selectedVariants[serviceId]);
+      return variant ? variant.price : 0;
+    }
+  
+    if (service.hourly) {
+      return (service.price || 0) * (serviceHours[serviceId] || 1);
+    }
+  
+    return service.price || 0;
+  };
+  
+  const updatePrices = () => {
+    let sum = 0;
+
+    // Součet cen vybraných služeb včetně variant
+    selectedServices.forEach(serviceId => {
+      const service = findServiceById(serviceId);
+      if (service) {
+        if (service.hasVariants && selectedVariants[serviceId]) {
+          const variant = service.variants.find(v => v.id === selectedVariants[serviceId]);
+          if (variant) {
+            sum += variant.price;
+          }
+        } else if (service.hourly) {
+          sum += (service.price || 0) * (serviceHours[serviceId] || 1);
+        } else {
+          sum += service.price || 0;
+        }
+      }
+    });
+  
+    // Přičtení cen balíčků
+    Object.entries(selectedPackages).forEach(([packageName]) => {
+      const packagePrice = packages[packageName]?.price || 0;
+      sum += packagePrice;
+    });
+  
+    // Aplikace příplatku pro XL vozy
+    if (carSize === 'XL') {
+      sum *= (1 + CAR_SIZE_MARKUP);
+    }
+  
+    // Výpočet slevy
+    const validDiscount = Number(discount) || 0;
+    const discountAmt = (sum * validDiscount) / 100;
+  
+    // Přičtení dodatečných nákladů
+    const additionalChargesSum = additionalCharges.reduce((acc, charge) => {
+      return acc + (Number(charge.amount) || 0);
+    }, 0);
+  
+    const final = sum - discountAmt + additionalChargesSum;
+  
+    setTotalPrice(sum);
+    setDiscountAmount(discountAmt);
+    setFinalPrice(final);
+  };
+
   useEffect(() => {
-    const db = getDatabase();
-    const vouchersRef = ref(db, 'vouchers');
+    console.log('Current Record ID:', currentRecordId);
+    console.log('selectedServices:', selectedServices);
+    updatePrices();
+  }, [selectedServices, selectedVariants, discount, carSize, serviceHours, additionalCharges, selectedPackages]);
 
-    const unsubscribe = onValue(vouchersRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        const voucherList = Object.entries(data).map(([id, voucher]) => ({
-          id,
-          ...voucher
-        }));
-        setVouchers(voucherList);
+  useEffect(() => {
+    const unsubscribe = onAuthStateChangedListener((currentUser) => {
+      if (currentUser) {
+        setUserEmail(currentUser.email);
+      } else {
+        setUserEmail(null);
       }
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Debug výpis dostupných balíčků
-  useEffect(() => {
-    console.log('Dostupné balíčky:', packages);
-  }, [packages]);
+  const renderServiceGroup = (category, group) => (
+    <ServiceGroup
+  key={category}
+  category={category}
+  group={group}
+  onToggleService={toggleService}
+  onEditService={handleEditService}
+  onDeleteService={handleDeleteService}
+  selectedServices={selectedServices}
+  selectedVariants={selectedVariants}
+  onVariantSelect={handleVariantSelect}
+  onEditGroup={handleEditGroup}
+  onDeleteGroup={handleDeleteGroup}
+  serviceHours={serviceHours}
+  onHoursChange={(serviceId, hours) => {
+    setServiceHours(prev => ({
+      ...prev,
+      [serviceId]: hours
+    }));
+  }}
+/>
+  );
 
-  // Debug výpis načtených voucherů
-  useEffect(() => {
-    console.log('Načtené vouchery:', vouchers);
-  }, [vouchers]);
-
-  // Další debug výpis ze ServiceContext
-  useEffect(() => {
-    console.log('ServiceContext packages:', packages);
-    console.log('Loading:', loading);
-  }, [packages, loading]);
-
-  // Funkce pro určení typu balíčku na základě ID a jeho názvu
-  const getPackageType = (packageId) => {
-    if (packageId === 'custom') return 'custom';
-    
-    const packageName = packages[packageId]?.name?.toLowerCase() || '';
-    
-    if (packageName.includes('keramick')) return 'premium';
-    if (packageName.includes('mytí') || packageName.includes('čištění')) return 'basic';
-    
-    return 'custom'; // výchozí typ
+  const handleEditGroup = (category, editedGroup) => {
+    console.log('Editing group:', category, editedGroup);
   };
-
-  // Funkce pro automatický výběr obrázku podle typu balíčku
-  const getBackgroundImage = (packageId) => {
-    const type = getPackageType(packageId);
-    return `voucher-${type}.jpg`;
-  };
-
-  // Funkce pro generování PDF poukazu
-  const generateVoucherPDF = async (voucher) => {
-    try {
-      console.log('Generuji poukaz pro balíček:', voucher.packageId);
-      console.log('Typ balíčku:', getPackageType(voucher.packageId));
-      
-      // Použije se vybraný obrázek (miniatura) uložená ve voucheru, nebo automatický výběr
-      const backgroundImage = voucher.selectedImage || getBackgroundImage(voucher.packageId);
-      console.log('Použité pozadí:', backgroundImage);
-
-      // Načtení obrázku a převod na base64
-      const response = await fetch(`${process.env.PUBLIC_URL}/${backgroundImage}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const blob = await response.blob();
-      const reader = new FileReader();
-      
-      reader.readAsDataURL(blob);
-      reader.onloadend = () => {
-        const base64data = reader.result;
-        
-        // HTML šablona pro PDF poukaz
-        const pdfContent = `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
-            <style>
-              .voucher {
-                width: 800px;
-                height: 400px;
-                position: relative;
-                background: #000 url('${base64data}') center/cover no-repeat;
-                color: white;
-                border-radius: 10px;
-                overflow: hidden;
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-              }
   
-              .logo-container {
-                background: white;
-                border-radius: 100%;
-                width: 150px;
-                height: 150px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                margin: 30px;
-                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-              }
-  
-              .logo {
-                width: 85%;
-                height: 85%;
-                object-fit: contain;
-              }
-  
-              .left-side {
-                z-index: 2;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-              }
-  
-              .title {
-                font-family: 'Playfair Display', serif;
-                font-size: 48px;
-                font-weight: 700;
-                margin: 20px 0;
-                letter-spacing: 2px;
-                text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-                color: #ffffff;
-                text-align: center;
-              }
-  
-              .right-side {
-                background: rgba(255, 255, 255, 0.95);
-                padding: 20px;
-                margin: 10px;
-                border-radius: 8px;
-                color: #000;
-                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-              }
-  
-              .field {
-                margin-bottom: 20px;
-              }
-  
-              .field-label {
-                color: #666;
-                font-size: 14px;
-                margin-bottom: 2px;
-                font-family: 'Roboto', sans-serif;
-              }
-  
-              .field-value {
-                border-bottom: 1px solid #ccc;
-                padding: 5px 0;
-                font-size: 16px;
-                font-family: 'Roboto', sans-serif;
-                font-weight: 500;
-              }
-            </style>
-          </head>
-          <body>
-            <div class="voucher">
-              <div class="left-side">
-                <div class="logo-container">
-                  <img src="${process.env.PUBLIC_URL}/Logo.png" class="logo" alt="MV Auto Detailing">
-                </div>
-                <div class="title">DÁRKOVÝ POUKAZ</div>
-              </div>
-              
-              <div class="right-side">
-                <div class="field">
-                  <div class="field-label">Pro:</div>
-                  <div class="field-value">${voucher.recipientName}</div>
-                </div>
-
-                <div class="field">
-                  <div class="field-label">${voucher.packageId === 'custom' ? 'Hodnota:' : 'Balíček:'}</div>
-                  <div class="field-value">${
-                    voucher.packageId === 'custom' 
-                      ? `${Number(voucher.customAmount).toLocaleString()} Kč`
-                      : packages[voucher.packageId]?.name || voucher.packageId
-                  }</div>
-                </div>
-
-                ${voucher.message ? `
-                  <div class="field">
-                    <div class="field-label">Věnování:</div>
-                    <div class="field-value">${voucher.message}</div>
-                  </div>
-                ` : ''}
-                
-                <div class="field">
-                  <div class="field-label">Číslo poukazu:</div>
-                  <div class="field-value">${voucher.code}</div>
-                </div>
-                
-                <div class="field">
-                  <div class="field-label">Platnost do:</div>
-                  <div class="field-value">${new Date(voucher.expiresAt).toLocaleDateString('cs-CZ')}</div>
-                </div>
-              </div>
-            </div>
-          </body>
-          </html>
-        `;
-
-        // Otevření nového okna a vyvolání tisku (PDF)
-        const printWindow = window.open('', '', 'height=600, width=800');
-        printWindow.document.write(pdfContent);
-        printWindow.document.close();
-        printWindow.print();
-      };
-    } catch (error) {
-      console.error('Error při generování poukazu:', error);
+  const handleDeleteGroup = (category) => {
+    if (window.confirm('Opravdu chcete smazat tuto kategorii?')) {
+      console.log('Deleting group:', category);
     }
   };
 
-  // Funkce pro generování unikátního kódu poukazu
-  const generateVoucherCode = () => {
-    const prefix = 'MV';
-    const year = new Date().getFullYear().toString().substr(-2);
-    const random = Math.random().toString(36).substr(2, 4).toUpperCase();
-    return `${prefix}${year}-${random}`;
-  };
-  
-  // Funkce pro výpočet data expirace voucheru
-  const getExpirationDate = (months) => {
-    const date = new Date();
-    date.setMonth(date.getMonth() + months);
-    return date.toISOString();
+  const handleAdditionalChargeChange = (index, field, value) => {
+    const newCharges = [...additionalCharges];
+
+    if (field === 'amount') {
+      let numValue = '';
+      if (value !== '' && value !== null && value !== undefined) {
+        const stringValue = String(value);
+        numValue = Number(stringValue.replace(/^0+/, '').replace(/[^0-9.]/g, ''));
+        numValue = numValue > 0 ? numValue : '';
+      }
+      newCharges[index][field] = numValue;
+    } else {
+      newCharges[index][field] = value;
+    }
+
+    setAdditionalCharges(newCharges);
   };
 
-  // Funkce, která se spustí při odeslání formuláře pro vytvoření voucheru
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const addAdditionalCharge = () => {
+    setAdditionalCharges([...additionalCharges, { description: '', amount: 0 }]);
+  };
+
+  const saveRecord = async () => {
+    const recordToSave = {
+      id: Date.now().toString(), // Přidáme ID
+      customerName,
+      customerPhone,
+      vehicleNotes,
+      selectedServices: Array.from(selectedServices),
+      serviceVariants,
+      carSize,
+      totalPrice,
+      discount,
+      finalPrice,
+      additionalCharges,
+      additionalNotes,
+      selectedPackages: Object.fromEntries(
+        Object.entries(selectedPackages).map(([name, data]) => [
+          name,
+          {
+            services: packages[name]?.services || [],
+            price: packages[name]?.price || 0
+          }
+        ])
+      ),
+      completedTasks: [],
+      timestamp: new Date().toISOString(),
+      userEmail: userEmail
+    };
+    
     try {
-      const db = getDatabase();
-      const voucherId = Date.now().toString();
-      const voucherCode = generateVoucherCode();
+      console.log('Ukládám záznam:', recordToSave);
+      const newRecordId = await saveRecordToFirebase(recordToSave);
+      console.log('Získané ID:', newRecordId);
       
-      // Vytvoření objektu voucheru, který se uloží do databáze
-      const voucherToSave = {
-        code: voucherCode,
-        ...voucherData,
-        createdAt: new Date().toISOString(),
-        expiresAt: getExpirationDate(voucherData.validityMonths),
-        status: 'active'
-      };
-      
-      await set(ref(db, `vouchers/${voucherId}`), voucherToSave);
-      alert('Poukaz byl úspěšně vytvořen!');
-      
+      if (newRecordId) {
+        setCurrentRecordId(newRecordId);
+        alert('Záznam byl úspěšně uložen');
+      } else {
+        alert('Při ukládání záznamu došlo k chybě');
+      }
     } catch (error) {
       console.error('Chyba při ukládání:', error);
-      alert('Chyba při vytváření poukazu: ' + error.message);
+      alert('Při ukládání záznamu došlo k chybě');
     }
   };
+    
+    
 
-  // Funkce pro smazání voucheru podle jeho ID
-  const handleDelete = async (voucherId) => {
-    if (!window.confirm("Opravdu chcete smazat tento poukaz?")) return;
-    try {
-      const db = getDatabase();
-      await remove(ref(db, `vouchers/${voucherId}`));
-      alert("Poukaz byl úspěšně smazán.");
-    } catch (error) {
-      console.error("Chyba při mazání poukazu:", error);
-      alert("Chyba při mazání poukazu: " + error.message);
-    }
+ 
+
+  const loadRecord = (record) => {
+    setCustomerName(record.customerName);
+    setCustomerPhone(record.customerPhone);
+    setVehicleNotes(record.vehicleNotes);
+    setSelectedServices(new Set(record.selectedServices));
+    setServiceVariants(record.serviceVariants || {});
+    setCarSize(record.carSize);
+    setDiscount(record.discount);
+    setAdditionalCharges(record.additionalCharges);
+    setAdditionalNotes(record.additionalNotes);
+    setSelectedPackages(record.selectedPackages || {});
+    setUserEmail(record.userEmail);
+    setShowSavedRecords(false);
   };
 
+  
   return (
-    <div className="container mx-auto p-8">
-      <h1 className="text-3xl font-bold mb-8">Dárkové poukazy</h1>
-      
-      <div className="max-w-2xl mx-auto bg-white rounded-lg shadow p-6">
-        <form onSubmit={handleSubmit}>
-          {/* Výběr typu poukazu: balíček nebo vlastní částka */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">
-              Typ poukazu
-            </label>
-            <select 
-              className="w-full p-2 border rounded"
-              value={voucherData.packageId}
-              onChange={(e) => setVoucherData({
-                ...voucherData,
-                packageId: e.target.value
-              })}
+    <>
+      <div className="max-w-4xl mx-auto p-4 space-y-6">
+        <div className="flex justify-between space-x-2 flex-wrap">
+          <div className="flex items-center gap-4 w-full sm:w-auto mb-4 sm:mb-0">
+            <div className="bg-blue-600 text-white p-4 rounded-full">
+              <Calculator size={32} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">MV Auto Detailing</h1>
+              <p className="text-gray-500">Kalkulace služeb</p>
+            </div>
+          </div>
+
+          <div className="flex space-x-2 w-full sm:w-auto justify-end">
+            <Button
+              variant="outline"
+              onClick={handleAddService}
+              className="h-12 px-4 mb-2 sm:mb-0 w-full sm:w-auto flex-grow flex items-center justify-center"
             >
-              <option value="custom">Vlastní částka</option>
-              {Object.entries(packages || {}).map(([name, packageData]) => (
-                <option key={name} value={name}>
-                  {name} - {packageData.price?.toLocaleString()} Kč
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          {/* Pokud je vybrána možnost "custom", zobrazí se pole pro zadání vlastní částky */}
-          {voucherData.packageId === 'custom' && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">
-                Částka (Kč)
-              </label>
-              <input
-                type="number"
-                className="w-full p-2 border rounded"
-                value={voucherData.customAmount}
-                onChange={(e) => setVoucherData({
-                  ...voucherData,
-                  customAmount: e.target.value
-                })}
-              />
-            </div>
-          )}
+              <Plus size={16} /> Přidat službu
+            </Button>
 
-          {/* Vstup pro jméno příjemce */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">
-              Pro koho
-            </label>
-            <input
-              type="text"
-              className="w-full p-2 border rounded"
-              value={voucherData.recipientName}
-              onChange={(e) => setVoucherData({
-                ...voucherData,
-                recipientName: e.target.value
-              })}
-            />
-          </div>
-
-          {/* Vstup pro volitelné věnování */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">
-              Věnování (nepovinné)
-            </label>
-            <textarea
-              className="w-full p-2 border rounded"
-              value={voucherData.message}
-              onChange={(e) => setVoucherData({
-                ...voucherData,
-                message: e.target.value
-              })}
-            />
-          </div>
-
-          {/* Výběr platnosti voucheru */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium mb-2">
-              Platnost
-            </label>
-            <select
-              className="w-full p-2 border rounded"
-              value={voucherData.validityMonths}
-              onChange={(e) => setVoucherData({
-                ...voucherData,
-                validityMonths: parseInt(e.target.value)
-              })}
+            <Button
+              variant="outline"
+              onClick={() => setShowSavedRecords(true)}
+              className="h-12 px-4 mb-2 sm:mb-0 w-full sm:w-auto flex-grow flex items-center justify-center"
             >
-              <option value={6}>6 měsíců</option>
-              <option value={12}>1 rok</option>
-              <option value={24}>2 roky</option>
-            </select>
+              <List className="mr-2" /> Uložené záznamy
+            </Button>
           </div>
-
-          {/* Sekce pro výběr miniatury (obrázku) pro poukaz */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">
-              Vyberte obrázek pro poukaz
-            </label>
-            <div className="flex space-x-4">
-              {['voucher-basic.jpg', 'voucher-premium.jpg', 'voucher-custom.jpg'].map((img, index) => (
-                <div key={index} 
-                     className={`cursor-pointer border-2 p-1 ${voucherData.selectedImage === img ? 'border-blue-600' : 'border-transparent'}`}
-                     onClick={() => setVoucherData({ ...voucherData, selectedImage: img })}>
-                  <img src={`${process.env.PUBLIC_URL}/${img}`} alt={`miniatura ${index}`} className="w-20 h-20 object-cover" />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Tlačítko pro odeslání formuláře a vytvoření voucheru */}
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
-          >
-            Vytvořit poukaz
-          </button>
-        </form>
-      </div>
-
-      {/* Seznam vytvořených voucherů */}
-      <div className="max-w-2xl mx-auto mt-8">
-        <h2 className="text-2xl font-bold mb-4">Vytvořené poukazy</h2>
-        <div className="space-y-4">
-          {vouchers.map(voucher => (
-            <div key={voucher.id} 
-                 className="bg-white rounded-lg shadow p-4 flex justify-between items-center">
-              <div>
-                <p className="font-semibold">{voucher.recipientName}</p>
-                <p className="text-sm text-gray-600">
-                  {voucher.packageId === 'custom' 
-                    ? `Vlastní částka: ${Number(voucher.customAmount).toLocaleString()} Kč`
-                    : `Balíček: ${packages[voucher.packageId]?.name || voucher.packageId}`
-                  }
-                </p>
-                <p className="text-sm text-gray-600">Kód: {voucher.code}</p>
-                <p className="text-sm text-gray-600">
-                  Platnost do: {new Date(voucher.expiresAt).toLocaleDateString('cs-CZ')}
-                </p>
-              </div>
-              <div className="flex space-x-2">
-                {/* Tlačítko pro stažení PDF */}
-                <button
-                  onClick={() => generateVoucherPDF(voucher)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                >
-                  Stáhnout PDF
-                </button>
-                {/* Tlačítko pro smazání voucheru s ikonou z lucide-react */}
-                <button
-                  onClick={() => handleDelete(voucher.id)}
-                  className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-                >
-                  <Trash className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-          ))}
         </div>
       </div>
-    </div>
+
+      {isAddModalOpen && (
+        <AddServiceModal
+          onSave={(category, newService) => {
+            addService(category, newService);
+            setIsAddModalOpen(false);
+          }}
+          onClose={() => setIsAddModalOpen(false)}
+          serviceGroups={serviceGroups}
+        />
+      )}
+
+
+
+{editingService && (
+  <EditServiceModal
+    isOpen={!!editingService}
+    service={editingService}
+    onSave={(updatedService) => handleEditServiceSave(editingService.mainCategory, updatedService)}
+    onClose={() => setEditingService(null)}
+    onDelete={() => {
+      if (editingService.mainCategory && editingService.id) {
+        handleDeleteService(editingService.mainCategory, editingService.id);
+        setEditingService(null);
+      } else {
+        console.error('Chybí data pro smazání služby:', editingService);
+        alert('Nelze smazat službu - chybí potřebná data');
+      }
+    }}
+  />
+)}
+
+{editingPackage && (
+  <EditPackageModal
+    isOpen={!!editingPackage}
+    package={editingPackage}
+    services={serviceGroups}
+    onClose={() => setEditingPackage(null)}
+    onSave={async (updatedPackage) => {
+      console.log('Data před updateService:', updatedPackage);
+      const result = await updateService('package', updatedPackage);
+      console.log('Výsledek updateService:', result);
+      setEditingPackage(null);
+    }}
+    onDelete={async (packageId) => {
+      await deletePackage('package', packageId);
+      setEditingPackage(null);
+    }}
+  />
+)}
+      <Card>
+  <CardContent className="pt-6">
+    <ToDoList 
+      selectedServices={selectedServices} 
+      recordId={currentRecordId} // Přidat tento state
+    />
+  </CardContent>
+</Card>
+      <Card>
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Jméno zákazníka</label>
+              <input
+                type="text"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                className="w-full p-2 border rounded"
+                placeholder="Jan Novák"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Telefon</label>
+              <input
+                type="tel"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                className="w-full p-2 border rounded"
+                placeholder="+420 123 456 789"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Poznámky k vozidlu</label>
+              <textarea
+                value={vehicleNotes}
+                onChange={(e) => setVehicleNotes(e.target.value)}
+                className="w-full p-2 border rounded"
+                placeholder="Specifické poznámky nebo požadavky..."
+                rows={3}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-6">
+          <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <CarSizeSelector
+    value={carSize}
+    onChange={setCarSize}
+  />
+</div>
+
+            <div className="space-y-6">
+              {renderServiceGroup('interior', serviceGroups?.interior)}
+              {renderServiceGroup('exterior', serviceGroups?.exterior)}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      
+      <Card className="bg-gray-50">
+  <CardContent className="pt-6">
+    <PackageGroup
+      packages={packages}
+      selectedPackages={selectedPackages}
+      onTogglePackage={togglePackage}
+      onEditPackage={handleEditPackage}
+      findServiceById={findServiceById}
+    />
+  </CardContent>
+</Card>
+
+      <Card className="bg-gray-50">
+        <CardContent className="pt-6">
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold mb-4">Dodatečné náklady</h3>
+            {additionalCharges.map((charge, index) => (
+              <div key={`charge-${index}`} className="flex items-center space-x-4">
+                <input
+                  type="text"
+                  value={charge.description}
+                  onChange={(e) => handleAdditionalChargeChange(index, 'description', e.target.value)}
+                  className="w-full p-2 border rounded"
+                  placeholder="Popis dodatečného nákladu"
+                />
+                <input
+                  type="number"
+                  value={charge.amount}
+                  onChange={(e) => handleAdditionalChargeChange(index, 'amount', Number(e.target.value))}
+                  className="w-24 p-2 border rounded"
+                  placeholder="Kč"
+                />
+              </div>
+            ))}
+            <button
+              onClick={addAdditionalCharge}
+              className="bg-blue-500 text-white px-4 py-2 rounded mt-4"
+            >
+              Přidat další náklad
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-gray-50">
+        <CardContent className="pt-6">
+          <div className="space-y-4">
+            <div className="flex justify-between text-lg">
+              <span className="font-medium">Celkem bez slevy:</span>
+              <span className="font-bold">{Math.round(totalPrice).toLocaleString()} Kč</span>
+            </div>
+            <div className="flex justify-between text-gray-600">
+              <div className="flex items-center gap-2">
+                <span>Sleva:</span>
+                <input
+                  type="number"
+                  value={discount || ''}
+                  onChange={handleDiscountChange}
+                  className="w-16 p-1 border rounded"
+                  min="0"
+                  max="100"
+                />
+                <span>%</span>
+              </div>
+              <span>{discountAmount > 0 ? `-${Math.round(discountAmount).toLocaleString()} Kč` : ''}</span>
+            </div>
+            <div className="pt-4 border-t">
+              <div className="flex justify-between text-xl">
+                <span className="font-bold">Konečná cena k zaplacení:</span>
+                <span className="font-bold text-blue-600">
+                  {finalPrice ? `${Math.round(finalPrice).toLocaleString()} Kč` : 'Není k dispozici'}
+                </span>
+              </div>
+
+              {carSize === 'XL' && (
+                <div className="text-sm text-gray-500 mt-2">
+                  * Cena zahrnuje navýšení o 30% pro velikost vozu XL.
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-gray-50">
+        <CardContent className="pt-6">
+          <div className="space-y-4">
+            <label className="text-sm font-medium">Poznámky:</label>
+            <textarea
+              value={additionalNotes}
+              onChange={(e) => setAdditionalNotes(e.target.value)}
+              className="w-full p-2 border rounded"
+              placeholder="Poznámka která bude na faktuře..."
+              rows={3}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-between space-x-2 mt-4 mb-4 mx-4">
+        <button
+          onClick={saveRecord}
+          className="bg-blue-500 text-white px-4 py-2 rounded flex-grow"
+        >
+          Uložit záznam
+        </button>
+        <PDFGenerator
+          customerName={customerName}
+          customerPhone={customerPhone}
+          vehicleNotes={vehicleNotes}
+          serviceGroups={serviceGroups}
+          selectedServices={selectedServices}
+          selectedVariants={selectedVariants}
+          serviceHours={serviceHours}
+          totalPrice={totalPrice}
+          discount={discount}
+          discountAmount={discountAmount}
+          carSize={carSize}
+          finalPrice={finalPrice}
+          additionalCharges={additionalCharges}
+          additionalNotes={additionalNotes}
+          selectedPackages={selectedPackages}
+          carSizeMarkup={CAR_SIZE_MARKUP}
+          packages={packages}
+        />
+      </div>
+
+      <GitHubUpdates repoOwner="NaviCZ" repoName="AutoDetailing" />
+
+      {showSavedRecords && (
+        <SavedRecordsModal
+          records={JSON.parse(localStorage.getItem('autoDetailingRecords') || '[]')}
+          onClose={() => setShowSavedRecords(false)}
+          onLoadRecord={loadRecord}
+        />
+      )}
+    </>
   );
 };
 
-export default VoucherGenerator;
+export default AutoDetailingCalculator;

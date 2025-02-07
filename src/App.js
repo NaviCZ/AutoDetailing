@@ -22,6 +22,11 @@ const App = () => {
   const calculatorRef = useRef(null);
 
   useEffect(() => {
+    console.log('Current pathname:', window.location.pathname);
+  }, [window.location.pathname]);
+
+
+  useEffect(() => {
     const unsubscribe = onAuthStateChangedListener((user) => {
       if (user) {
         setUser({
@@ -74,16 +79,21 @@ const App = () => {
             </div>
           </nav>
           {user && <UpdateNotification user={user} />}
+
+          
           <Routes>
-            <Route path="/" element={<Home user={user} />} />
-            <Route path="/calculator" element={<AutoDetailingCalculator user={user} ref={calculatorRef} />} />
-            <Route path="/login" element={<LoginPage setUser={setUser} />} />
-            <Route path="/logout" element={<Logout setUser={setUser} />} />
-            <Route path="/products" element={<ProductManagement />} />
-            <Route path="/admin" element={<AdminSettings />} />
-            <Route path="/admin/ordering" element={<CategoryOrderManager />} />
-            <Route path="/vouchers" element={<VoucherGenerator />} />
-          </Routes>
+  {/* Explicitně definovat exact pro každou cestu */}
+  <Route exact path="/" element={<Home user={user} />} />
+  <Route exact path="/calculator" element={
+    <AutoDetailingCalculator user={user} ref={calculatorRef}key="calculator" />
+  } />
+  <Route exact path="/login" element={<LoginPage setUser={setUser} />} />
+  <Route exact path="/logout" element={<Logout setUser={setUser} />} />
+  <Route exact path="/products" element={<ProductManagement />} />
+  <Route exact path="/admin" element={<AdminSettings />} />
+  <Route exact path="/admin/ordering" element={<CategoryOrderManager />} />
+  <Route exact path="/vouchers" element={<VoucherGenerator />} />
+</Routes>
         </div>
         <Footer />
       </ServiceProvider>
@@ -379,6 +389,13 @@ const Home = ({ user }) => {
   printWindow.document.close();
   printWindow.print();
 };
+
+
+useEffect(() => {
+  console.log('Calculator component mounted');
+}, []);
+
+
 
 return (
   <div className="container mx-auto p-8">
